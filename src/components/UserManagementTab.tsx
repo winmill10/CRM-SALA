@@ -734,11 +734,14 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600"
                   >
                     <option value="">-- ไม่ระบุ / เชื่อมโยงภายหลัง --</option>
-                    {appData.salesAgents.map((agent) => (
-                      <option key={agent} value={agent}>
-                        {agent}
-                      </option>
-                    ))}
+                    {appData.salesAgents.map((agent) => {
+                      const sp = (appData.salesProfiles || []).find((p) => p.nickname === agent);
+                      return (
+                        <option key={agent} value={agent}>
+                          {agent} {sp?.fullName ? `(${sp.fullName})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -821,11 +824,14 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600"
                   >
                     <option value="">-- ไม่ระบุ --</option>
-                    {appData.salesAgents.map((agent) => (
-                      <option key={agent} value={agent}>
-                        {agent}
-                      </option>
-                    ))}
+                    {appData.salesAgents.map((agent) => {
+                      const sp = (appData.salesProfiles || []).find((p) => p.nickname === agent);
+                      return (
+                        <option key={agent} value={agent}>
+                          {agent} {sp?.fullName ? `(${sp.fullName})` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}

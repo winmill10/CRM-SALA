@@ -78,8 +78,10 @@ export default function App() {
         {currentTab === 'form' && (
           <CustomerForm
             appData={data}
+            currentUser={currentUser}
             onSaveCustomer={addCustomer}
             onNavigateToTable={() => setCurrentTab('table')}
+            onSaveSalesProfile={saveSalesProfile}
           />
         )}
 
@@ -160,6 +162,9 @@ export default function App() {
             onSaveUser={saveUser}
             onDeleteUser={deleteUser}
             currentUser={currentUser}
+            onSaveSalesProfile={saveSalesProfile}
+            onToggleSalesVisibility={toggleSalesVisibility}
+            onDeleteSalesProfile={deleteSalesProfile}
           />
         )}
       </main>

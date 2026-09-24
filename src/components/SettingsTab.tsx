@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppData, AppUser } from '../types';
+import { AppData, AppUser, SalesProfile } from '../types';
 import {
   Settings,
   Plus,
@@ -12,7 +12,13 @@ import {
   Shield,
   Key,
   CheckCircle,
-  UserCheck
+  UserCheck,
+  Contact,
+  Phone,
+  Facebook,
+  Eye,
+  EyeOff,
+  Edit2
 } from 'lucide-react';
 
 interface SettingsTabProps {
@@ -25,6 +31,9 @@ interface SettingsTabProps {
   onSaveUser?: (user: AppUser) => void;
   onDeleteUser?: (id: string) => void;
   currentUser?: AppUser | null;
+  onSaveSalesProfile?: (profile: Omit<SalesProfile, 'id'> & { id?: number }) => void;
+  onToggleSalesVisibility?: (id: number) => void;
+  onDeleteSalesProfile?: (id: number) => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -37,6 +46,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onSaveUser,
   onDeleteUser,
   currentUser,
+  onSaveSalesProfile,
+  onToggleSalesVisibility,
+  onDeleteSalesProfile,
 }) => {
   // Category state
   const [newCatName, setNewCatName] = useState('');
@@ -45,6 +57,56 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const categories = Object.keys(appData.categories);
   const [selectedCat, setSelectedCat] = useState<string>(categories[0] || '');
   const [newSubName, setNewSubName] = useState('');
+
+  // Sales Profiles Management state
+  const [salesNick, setSalesNick] = useState('');
+  const [salesFullName, setSalesFullName] = useState('');
+  const [salesPhone, setSalesPhone] = useState('');
+  const [salesFacebook, setSalesFacebook] = useState('');
+  const [salesNote, setSalesNote] = useState('');
+  const [editingSalesId, setEditingSalesId] = useState<number | null>(null);
+  const [salesMsg, setSalesMsg] = useState('');
+
+  const handleSaveSales = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salesNick.trim() || !onSaveSalesProfile) return;
+    onSaveSalesProfile({
+      id: editingSalesId || undefined,
+      nickname: salesNick.trim(),
+      fullName: salesFullName.trim(),
+      phone: salesPhone.trim(),
+      facebook: salesFacebook.trim(),
+      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(salesNick.trim())}`,
+      note: salesNote.trim(),
+      hidden: false,
+    });
+    setSalesMsg(editingSalesId ? 'แก้ไขข้อมูลเซลล์เรียบร้อย' : 'เพิ่มเซลล์ใหม่และเชื่อมโยงกับระบบเรียบร้อย');
+    setTimeout(() => setSalesMsg(''), 3000);
+    setSalesNick('');
+    setSalesFullName('');
+    setSalesPhone('');
+    setSalesFacebook('');
+    setSalesNote('');
+    setEditingSalesId(null);
+  };
+
+  const handleStartEditSales = (sp: SalesProfile) => {
+    setEditingSalesId(sp.id);
+    setSalesNick(sp.nickname);
+    setSalesFullName(sp.fullName || '');
+    setSalesPhone(sp.phone || '');
+    setSalesFacebook(sp.facebook || '');
+    setSalesNote(sp.note || '');
+  };
+
+  const handleCancelEditSales = () => {
+    setEditingSalesId(null);
+    setSalesNick('');
+    setSalesFullName('');
+    setSalesPhone('');
+    setSalesFacebook('');
+    setSalesNote('');
+  };
 
   // User Management state
   const [newUsername, setNewUsername] = useState('');
@@ -333,12 +395,207 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          {/* Section 3: Users Management */}
+          {/* Section 3: Sales Profiles & Agents Management */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                  <Contact className="w-4 h-4 text-red-600" />
+                  3. จัดการข้อมูลเซลล์ (Sales Profiles &amp; Agents)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  เพิ่ม ลบ หรือแก้ไขข้อมูลเซลล์ รายชื่อทั้งหมดจะเชื่อมโยงกับฟอร์มบันทึกข้อมูลลูกค้า และหน้ารายงานเซลล์อัตโนมัติ
+                </p>
+              </div>
+              <span className="text-[11px] bg-red-100 text-red-800 font-semibold px-2 py-0.5 rounded-md">
+                เซลล์ในระบบ: {(appData.salesProfiles || []).length} คน (เปิดใช้งาน {(appData.salesProfiles || []).filter(p => !p.hidden).length} คน)
+              </span>
+            </div>
+
+            {salesMsg && (
+              <div className="mb-4 flex items-center gap-1.5 p-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span>{salesMsg}</span>
+              </div>
+            )}
+
+            {/* Sales Add/Edit Form */}
+            {onSaveSalesProfile && (
+              <form onSubmit={handleSaveSales} className="bg-white p-4 rounded-xl border border-slate-200 mb-4 text-xs">
+                <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5 text-red-600" />
+                  {editingSalesId ? 'แก้ไขข้อมูลเซลล์' : 'เพิ่มเซลล์ใหม่'}
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">
+                      ชื่อเล่น/ชื่อเรียกในระบบ <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น คุณสมชาย, คุณป๊อป"
+                      value={salesNick}
+                      onChange={(e) => setSalesNick(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">ชื่อ-นามสกุลจริง</label>
+                    <input
+                      type="text"
+                      placeholder="เช่น สมชาย ใจดี"
+                      value={salesFullName}
+                      onChange={(e) => setSalesFullName(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">เบอร์โทรศัพท์</label>
+                    <input
+                      type="text"
+                      placeholder="081-xxx-xxxx"
+                      value={salesPhone}
+                      onChange={(e) => setSalesPhone(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-600 mb-1">Facebook เพจ/เซลล์</label>
+                    <input
+                      type="text"
+                      placeholder="FB: Somchai Auto"
+                      value={salesFacebook}
+                      onChange={(e) => setSalesFacebook(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-xl bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <input
+                    type="text"
+                    placeholder="หมายเหตุหรือความเชี่ยวชาญ (เช่น เชี่ยวชาญ MU-X, ประจำสาขา...)"
+                    value={salesNote}
+                    onChange={(e) => setSalesNote(e.target.value)}
+                    className="flex-1 p-2 border border-slate-300 rounded-xl bg-white text-xs"
+                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    {editingSalesId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditSales}
+                        className="px-3 py-2 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-medium"
+                      >
+                        ยกเลิก
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-semibold shadow-xs flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {editingSalesId ? 'บันทึกการแก้ไข' : 'เพิ่มเซลล์'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* Sales Table */}
+            <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                    <th className="p-3 font-semibold">เซลล์</th>
+                    <th className="p-3 font-semibold">ชื่อ-นามสกุล</th>
+                    <th className="p-3 font-semibold">เบอร์โทร</th>
+                    <th className="p-3 font-semibold">Facebook</th>
+                    <th className="p-3 font-semibold">สถานะในระบบ</th>
+                    <th className="p-3 font-semibold text-right">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(appData.salesProfiles || []).map((sp) => {
+                    const custCount = (appData.customers || []).filter((c) => c.salesAgent === sp.nickname).length;
+                    return (
+                      <tr key={sp.id} className={`hover:bg-slate-50 ${sp.hidden ? 'opacity-50 bg-slate-50/50' : ''}`}>
+                        <td className="p-3 font-bold text-slate-800 flex items-center gap-2">
+                          <img
+                            src={sp.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(sp.nickname)}`}
+                            alt={sp.nickname}
+                            className="w-7 h-7 rounded-full object-cover border"
+                          />
+                          <span>{sp.nickname}</span>
+                        </td>
+                        <td className="p-3 text-slate-600">{sp.fullName || '-'}</td>
+                        <td className="p-3 text-slate-600 font-mono">{sp.phone || '-'}</td>
+                        <td className="p-3 text-slate-600 truncate max-w-[150px]">{sp.facebook || '-'}</td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                sp.hidden
+                                  ? 'bg-slate-200 text-slate-700'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {sp.hidden ? 'ซ่อน' : 'แสดงในระบบ'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              (ลูกค้า {custCount} คน)
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {onToggleSalesVisibility && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleSalesVisibility(sp.id)}
+                                className="p-1 text-slate-400 hover:text-slate-700 transition"
+                                title={sp.hidden ? 'เปิดใช้งาน' : 'ซ่อน'}
+                              >
+                                {sp.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditSales(sp)}
+                              className="p-1 text-slate-400 hover:text-blue-600 transition"
+                              title="แก้ไข"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {onDeleteSalesProfile && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`ต้องการลบข้อมูลเซลล์ "${sp.nickname}" ใช่หรือไม่?`)) {
+                                    onDeleteSalesProfile(sp.id);
+                                  }
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 transition"
+                                title="ลบ"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 4: Users Management */}
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-red-600" />
-                3. จัดการผู้ใช้งานและสิทธิ์การเข้าสู่ระบบ (User Management)
+                4. จัดการผู้ใช้งานและสิทธิ์การเข้าสู่ระบบ (User Management)
               </h3>
               <span className="text-[11px] bg-red-100 text-red-800 font-semibold px-2 py-0.5 rounded-md">
                 บัญชีหลัก: salacms
@@ -541,11 +798,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
-          {/* Section 4: Backup & Restore */}
+          {/* Section 5: Backup & Restore */}
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
             <h3 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
               <Download className="w-4 h-4 text-red-600" />
-              4. สำรองข้อมูลและกู้คืน (Backup & Restore)
+              5. สำรองข้อมูลและกู้คืน (Backup & Restore)
             </h3>
             <p className="text-xs text-slate-500 mb-4">
               ดาวน์โหลดไฟล์ข้อมูลทั้งหมดของระบบเก็บไว้ หรือนำไฟล์สำรองมาเปิดใช้งานในเครื่องนี้

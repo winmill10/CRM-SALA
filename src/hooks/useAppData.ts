@@ -151,7 +151,15 @@ export function useAppData() {
               list.push(docSnap.data() as SalesProfile);
             });
             list.sort((a, b) => Number(a.id) - Number(b.id));
-            setData((prev) => ({ ...prev, salesProfiles: list }));
+            const activeNicknames = list.filter((sp) => !sp.hidden).map((sp) => sp.nickname.trim()).filter(Boolean);
+            setData((prev) => {
+              const combinedAgents = Array.from(new Set([...activeNicknames, ...prev.salesAgents])).filter(Boolean);
+              return {
+                ...prev,
+                salesProfiles: list,
+                salesAgents: combinedAgents.length > 0 ? combinedAgents : prev.salesAgents,
+              };
+            });
           }
         });
 
@@ -183,13 +191,18 @@ export function useAppData() {
         unsubSettings = onSnapshot(doc(db, 'settings', 'config'), (docSnap) => {
           if (docSnap.exists()) {
             const sData = docSnap.data();
-            setData((prev) => ({
-              ...prev,
-              salesAgents: sData.salesAgents || prev.salesAgents,
-              categories: sData.categories || prev.categories,
-              categoryColors: sData.categoryColors || prev.categoryColors,
-              statuses: sData.statuses || prev.statuses,
-            }));
+            setData((prev) => {
+              const activeNicknames = (prev.salesProfiles || []).filter((sp) => !sp.hidden).map((sp) => sp.nickname.trim()).filter(Boolean);
+              const configAgents = (sData.salesAgents || prev.salesAgents || []).map((a: string) => a.trim()).filter(Boolean);
+              const combinedAgents = Array.from(new Set([...activeNicknames, ...configAgents])).filter(Boolean);
+              return {
+                ...prev,
+                salesAgents: combinedAgents.length > 0 ? combinedAgents : prev.salesAgents,
+                categories: sData.categories || prev.categories,
+                categoryColors: sData.categoryColors || prev.categoryColors,
+                statuses: sData.statuses || prev.statuses,
+              };
+            });
           }
         });
 
@@ -395,10 +408,6 @@ export function useAppData() {
     let updatedProfiles = [...data.salesProfiles];
     let updatedAgents = [...data.salesAgents];
 
-    if (!updatedAgents.includes(nickname)) {
-      updatedAgents.push(nickname);
-    }
-
     let targetProfile: SalesProfile;
 
     if (profile.id) {
@@ -406,6 +415,7 @@ export function useAppData() {
       const oldNick = idx !== -1 ? updatedProfiles[idx].nickname : '';
       targetProfile = {
         ...profile,
+        nickname,
         id: profile.id,
       };
       if (idx !== -1) {
@@ -413,17 +423,41 @@ export function useAppData() {
       }
       if (oldNick && oldNick !== nickname) {
         updatedAgents = updatedAgents.map((a) => (a === oldNick ? nickname : a));
+
+        // Sync customer records & campaigns so reports and data stay linked
+        const updatedCustomers = data.customers.map((c) =>
+          c.salesAgent === oldNick ? { ...c, salesAgent: nickname } : c
+        );
+        const updatedCampaigns = data.salesCampaigns.map((sc) =>
+          sc.salesAgent === oldNick ? { ...sc, salesAgent: nickname } : sc
+        );
+        setData((prev) => ({
+          ...prev,
+          customers: updatedCustomers,
+          salesCampaigns: updatedCampaigns,
+        }));
+
+        data.customers
+          .filter((c) => c.salesAgent === oldNick)
+          .forEach((c) => {
+            setDoc(doc(db, 'customers', String(c.id)), { ...c, salesAgent: nickname }).catch(console.warn);
+          });
       }
     } else {
       targetProfile = {
         ...profile,
+        nickname,
         id: Date.now(),
         hidden: false,
       };
       updatedProfiles.push(targetProfile);
+      if (!updatedAgents.includes(nickname)) {
+        updatedAgents.push(nickname);
+      }
     }
 
-    const finalAgents = Array.from(new Set(updatedAgents));
+    const activeFromProfiles = updatedProfiles.filter((p) => !p.hidden).map((p) => p.nickname.trim()).filter(Boolean);
+    const finalAgents = Array.from(new Set([...activeFromProfiles, ...updatedAgents])).filter(Boolean);
 
     setData((prev) => ({
       ...prev,
@@ -443,14 +477,18 @@ export function useAppData() {
     const target = data.salesProfiles.find((sp) => sp.id === id);
     if (!target) return;
     const updated = { ...target, hidden: !target.hidden };
+    const updatedProfiles = data.salesProfiles.map((sp) => (sp.id === id ? updated : sp));
+    const activeAgents = updatedProfiles.filter((p) => !p.hidden).map((p) => p.nickname.trim()).filter(Boolean);
 
     setData((prev) => ({
       ...prev,
-      salesProfiles: prev.salesProfiles.map((sp) => (sp.id === id ? updated : sp)),
+      salesProfiles: updatedProfiles,
+      salesAgents: activeAgents.length > 0 ? activeAgents : prev.salesAgents,
     }));
 
     try {
       await setDoc(doc(db, 'salesProfiles', String(id)), updated);
+      await persistSettings(activeAgents.length > 0 ? activeAgents : data.salesAgents, data.categories, data.categoryColors, data.statuses);
     } catch (e) {
       console.warn('Firestore toggleSalesVisibility error:', e);
     }
@@ -460,11 +498,12 @@ export function useAppData() {
     const target = data.salesProfiles.find((p) => p.id === id);
     if (!target) return;
 
-    const remainingAgents = data.salesAgents.filter((a) => a !== target.nickname);
+    const remainingProfiles = data.salesProfiles.filter((p) => p.id !== id);
+    const remainingAgents = remainingProfiles.filter((p) => !p.hidden).map((p) => p.nickname.trim()).filter(Boolean);
 
     setData((prev) => ({
       ...prev,
-      salesProfiles: prev.salesProfiles.filter((p) => p.id !== id),
+      salesProfiles: remainingProfiles,
       salesAgents: remainingAgents,
     }));
 
