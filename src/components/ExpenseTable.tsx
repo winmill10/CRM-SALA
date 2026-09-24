@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppData, Expense } from '../types';
 import { formatNum, getCurrentYearMonth } from '../hooks/useAppData';
+import * as XLSX from 'xlsx';
 import {
   Wallet,
   Plus,
@@ -8,7 +9,9 @@ import {
   Trash2,
   X,
   Save,
-  ExternalLink
+  ExternalLink,
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 
 interface ExpenseTableProps {
@@ -98,28 +101,123 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
     closeModal();
   };
 
+  const handleExportExcel = () => {
+    if (filteredExpenses.length === 0) {
+      alert('ไม่มีข้อมูลรายการงบประมาณสำหรับ Export Excel');
+      return;
+    }
+
+    let sumBudget = 0;
+    let sumSpend = 0;
+    let sumInbox = 0;
+
+    const dataRows = filteredExpenses.map((e, index) => {
+      const b = Number(e.budget) || 0;
+      const s = Number(e.spend) || 0;
+      const diff = b - s;
+      const inb = Number(e.inboxCount) || 0;
+      const cpi = inb > 0 ? s / inb : 0;
+      const statusStr = s > b ? 'งบเกิน (Over)' : diff === 0 ? 'พอดีงบ' : 'คงเหลือ (Under)';
+
+      sumBudget += b;
+      sumSpend += s;
+      sumInbox += inb;
+
+      return {
+        'ลำดับ': index + 1,
+        'เดือน': e.month,
+        'รหัสแคมเปญ': e.code || '-',
+        'ชื่อแคมเปญ': e.name,
+        'ประเภทรถ': e.category,
+        'งบประมาณ (บาท)': b,
+        'งบที่ใช้จริง (บาท)': s,
+        'ส่วนต่าง/ผลต่าง (บาท)': diff,
+        'สถานะงบประมาณ': statusStr,
+        'จำนวน Inbox (ข้อความ)': inb,
+        'ต้นทุนต่อ Inbox (บาท)': Number(cpi.toFixed(2)),
+        'ลิงก์แคมเปญ': e.link || '-',
+      };
+    });
+
+    const netDiff = sumBudget - sumSpend;
+    const avgCpi = sumInbox > 0 ? sumSpend / sumInbox : 0;
+
+    // Summary row
+    dataRows.push({
+      'ลำดับ': 'รวมทั้งหมด' as any,
+      'เดือน': `${filteredExpenses.length} รายการ`,
+      'รหัสแคมเปญ': '-',
+      'ชื่อแคมเปญ': 'สรุปภาพรวมงบประมาณ',
+      'ประเภทรถ': '-',
+      'งบประมาณ (บาท)': sumBudget,
+      'งบที่ใช้จริง (บาท)': sumSpend,
+      'ส่วนต่าง/ผลต่าง (บาท)': netDiff,
+      'สถานะงบประมาณ': sumSpend > sumBudget ? 'งบเกินรวม' : 'งบคงเหลือรวม',
+      'จำนวน Inbox (ข้อความ)': sumInbox,
+      'ต้นทุนต่อ Inbox (บาท)': Number(avgCpi.toFixed(2)),
+      'ลิงก์แคมเปญ': '-',
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataRows);
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 8 },  // ลำดับ
+      { wch: 12 }, // เดือน
+      { wch: 16 }, // รหัส
+      { wch: 30 }, // ชื่อแคมเปญ
+      { wch: 18 }, // ประเภทรถ
+      { wch: 16 }, // งบประมาณ
+      { wch: 16 }, // งบใช้จริง
+      { wch: 18 }, // ส่วนต่าง
+      { wch: 16 }, // สถานะ
+      { wch: 18 }, // Inbox
+      { wch: 18 }, // ต้นทุนต่อ Inbox
+      { wch: 35 }, // ลิงก์
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Budget_Expenses');
+
+    const fileSuffix = filterMonth || filterYear || 'All';
+    XLSX.writeFile(workbook, `Budget_Expenses_${fileSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
           <div>
             <h2 className="text-xl font-bold text-red-700 flex items-center">
               <Wallet className="w-5 h-5 mr-2" />
               บันทึกและจัดการงบประมาณรายเดือน
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              บันทึกงบแคมเปญ คำนวณต้นทุนต่อ Inbox และตรวจสอบงบเกิน
+              บันทึกงบแคมเปญ คำนวณต้นทุนต่อ Inbox ตรวจสอบงบเกิน และ Export Excel
             </p>
           </div>
 
-          <button
-            onClick={openAddModal}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>เพิ่มแคมเปญใหม่</span>
-          </button>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+              title="ดาวน์โหลดตารางงบประมาณเป็นไฟล์ Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Export Excel ({filteredExpenses.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+            >
+              <Plus className="w-4 h-4" />
+              <span>เพิ่มแคมเปญใหม่</span>
+            </button>
+          </div>
         </div>
 
         {/* Filter Controls */}

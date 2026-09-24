@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppData, SalesCampaign } from '../types';
 import { formatNum, getCurrentYearMonth } from '../hooks/useAppData';
+import * as XLSX from 'xlsx';
 import {
   Megaphone,
   Plus,
@@ -12,7 +13,8 @@ import {
   TrendingUp,
   X,
   Save,
-  Filter
+  Filter,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface SalesCampaignTabProps {
@@ -117,11 +119,55 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
     closeModal();
   };
 
+  const handleExportExcel = () => {
+    if (filteredCampaigns.length === 0) {
+      alert('ไม่มีข้อมูลแคมเปญเพจเซลล์สำหรับ Export Excel');
+      return;
+    }
+
+    const rows = filteredCampaigns.map((sc, idx) => {
+      const b = Number(sc.budget) || 0;
+      const s = Number(sc.spend) || 0;
+      const inb = Number(sc.inbox) || 0;
+      const cpi = inb > 0 ? s / inb : 0;
+      return {
+        'ลำดับ': idx + 1,
+        'เดือน': sc.month,
+        'เซลล์': sc.salesAgent,
+        'ชื่อแคมเปญ': sc.campaignName,
+        'ประเภท': sc.category,
+        'งบประมาณ (บาท)': b,
+        'ยอดใช้จริง (บาท)': s,
+        'ผลต่าง (บาท)': b - s,
+        'Inbox (ข้อความ)': inb,
+        'ต้นทุนต่อ Inbox (บาท)': Number(cpi.toFixed(2)),
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 8 },  // ลำดับ
+      { wch: 12 }, // เดือน
+      { wch: 16 }, // เซลล์
+      { wch: 30 }, // ชื่อแคมเปญ
+      { wch: 18 }, // ประเภท
+      { wch: 16 }, // งบ
+      { wch: 16 }, // จ่ายจริง
+      { wch: 16 }, // ผลต่าง
+      { wch: 16 }, // Inbox
+      { wch: 20 }, // CPI
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales_Campaigns');
+    XLSX.writeFile(workbook, `Sales_Campaigns_${filterSales || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
           <div>
             <h2 className="text-xl font-bold text-red-700 flex items-center">
               <Megaphone className="w-5 h-5 mr-2" />
@@ -132,13 +178,26 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={openAddModal}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>เพิ่มแคมเปญเพจเซลล์</span>
-          </button>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+              title="ดาวน์โหลดข้อมูลแคมเปญเพจเซลล์เป็น Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Export Excel ({filteredCampaigns.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+            >
+              <Plus className="w-4 h-4" />
+              <span>เพิ่มแคมเปญเพจเซลล์</span>
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

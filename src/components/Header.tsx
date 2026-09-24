@@ -13,7 +13,8 @@ import {
   RotateCcw,
   LogOut,
   Shield,
-  User
+  User,
+  Users
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'reportcustomer', label: 'รีพอร์ตรวม', icon: <PieChart className="w-3.5 h-3.5 mr-1" /> },
     { id: 'expenses', label: 'งบประมาณ', icon: <Wallet className="w-3.5 h-3.5 mr-1" /> },
     { id: 'reportexpenses', label: 'รีพอร์ตค่าใช้จ่าย', icon: <TrendingUp className="w-3.5 h-3.5 mr-1" /> },
+    { id: 'users', label: 'จัดการผู้ใช้', icon: <Users className="w-3.5 h-3.5 mr-1" /> },
     { id: 'settings', label: 'ตั้งค่าระบบ', icon: <Settings className="w-3.5 h-3.5 mr-1" /> },
   ];
 
@@ -150,6 +152,22 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               );
             })}
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('คุณต้องการออกจากระบบ (Logout) หรือไม่?')) {
+                    onLogout();
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center whitespace-nowrap bg-red-950/60 hover:bg-rose-600 text-rose-200 hover:text-white border border-red-500/50 cursor-pointer ml-1 text-xs shadow-xs"
+                title="ออกจากระบบ (Logout)"
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1 text-rose-300" />
+                <span>ออกจากระบบ</span>
+              </button>
+            )}
           </nav>
 
           {/* Desktop User Badge & Logout */}

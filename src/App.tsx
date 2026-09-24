@@ -9,6 +9,7 @@ import { SalesCampaignTab } from './components/SalesCampaignTab';
 import { CustomerReport } from './components/CustomerReport';
 import { ExpenseTable } from './components/ExpenseTable';
 import { ExpenseReport } from './components/ExpenseReport';
+import { UserManagementTab } from './components/UserManagementTab';
 import { SettingsTab } from './components/SettingsTab';
 import { ImageModal } from './components/ImageModal';
 import { LoginScreen } from './components/LoginScreen';
@@ -121,6 +122,16 @@ export default function App() {
           <ExpenseReport
             appData={data}
             availableYears={availableYears}
+          />
+        )}
+
+        {currentTab === 'users' && (
+          <UserManagementTab
+            appData={data}
+            currentUser={currentUser}
+            onSaveUser={saveUser}
+            onDeleteUser={deleteUser}
+            onLogout={logout}
           />
         )}
 

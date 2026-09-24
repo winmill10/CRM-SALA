@@ -25,8 +25,10 @@ import {
   MessageSquare,
   BarChart3,
   PieChart as PieIcon,
-  Filter
+  Filter,
+  FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 Chart.register(
   BarController,
@@ -207,6 +209,67 @@ export const ExpenseReport: React.FC<ExpenseReportProps> = ({ appData, available
     };
   }, [filteredExpenses, viewMode, selectedYear, chartTypeExpense, chartTypeDoughnut]);
 
+  const handleExportReport = () => {
+    if (filteredExpenses.length === 0) {
+      alert('ไม่มีข้อมูลค่าใช้จ่ายสำหรับ Export Excel');
+      return;
+    }
+
+    // 1. Data Rows
+    const campaignRows = filteredExpenses.map((e, idx) => {
+      const b = Number(e.budget) || 0;
+      const s = Number(e.spend) || 0;
+      const inb = Number(e.inboxCount) || 0;
+      return {
+        'ลำดับ': idx + 1,
+        'เดือน': e.month,
+        'รหัส': e.code || '-',
+        'ชื่อแคมเปญ': e.name,
+        'หมวดหมู่': e.category,
+        'งบประมาณ (บาท)': b,
+        'ใช้จริง (บาท)': s,
+        'ส่วนต่าง (บาท)': b - s,
+        'งบเกิน (บาท)': s > b ? s - b : 0,
+        'จำนวน Inbox': inb,
+        'ต้นทุน/Inbox (บาท)': inb > 0 ? Number((s / inb).toFixed(2)) : 0,
+      };
+    });
+
+    // 2. Category Summary
+    const catMap: Record<string, { budget: number; spend: number; inbox: number }> = {};
+    filteredExpenses.forEach((e) => {
+      if (!catMap[e.category]) {
+        catMap[e.category] = { budget: 0, spend: 0, inbox: 0 };
+      }
+      catMap[e.category].budget += Number(e.budget) || 0;
+      catMap[e.category].spend += Number(e.spend) || 0;
+      catMap[e.category].inbox += Number(e.inboxCount) || 0;
+    });
+
+    const categorySummaryRows = Object.entries(catMap).map(([cat, val]) => ({
+      'หมวดหมู่': cat,
+      'งบประมาณรวม (บาท)': val.budget,
+      'ใช้จริงรวม (บาท)': val.spend,
+      'ผลต่างสุทธิ (บาท)': val.budget - val.spend,
+      'งบเกิน (บาท)': val.spend > val.budget ? val.spend - val.budget : 0,
+      'Inbox รวม': val.inbox,
+      'ต้นทุนเฉลี่ย/Inbox (บาท)': val.inbox > 0 ? Number((val.spend / val.inbox).toFixed(2)) : 0,
+    }));
+
+    const workbook = XLSX.utils.book_new();
+
+    const wsSummary = XLSX.utils.json_to_sheet(categorySummaryRows);
+    wsSummary['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
+    XLSX.utils.book_append_sheet(workbook, wsSummary, 'สรุปแยกตามหมวดหมู่');
+
+    const wsDetail = XLSX.utils.json_to_sheet(campaignRows);
+    wsDetail['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(workbook, wsDetail, 'รายการแคมเปญทั้งหมด');
+
+    const titleMode = viewMode === 'year' ? `Year_${selectedYear}` : `Month_${selectedMonth}`;
+    XLSX.writeFile(workbook, `Expense_Report_${titleMode}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8">
@@ -223,6 +286,16 @@ export const ExpenseReport: React.FC<ExpenseReportProps> = ({ appData, available
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleExportReport}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+              title="ดาวน์โหลดรายงานสรุปเป็น Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Export สรุปงบ (Excel)</span>
+            </button>
+
             <div className="flex items-center gap-1.5 bg-red-50 px-2.5 py-1.5 rounded-xl border border-red-200">
               <label className="text-xs font-bold text-red-800">รูปแบบ:</label>
               <select

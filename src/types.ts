@@ -82,4 +82,5 @@ export type TabType =
   | 'reportcustomer'
   | 'expenses'
   | 'reportexpenses'
+  | 'users'
   | 'settings';
