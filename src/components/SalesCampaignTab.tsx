@@ -171,10 +171,10 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
           <div>
             <h2 className="text-xl font-bold text-red-700 flex items-center">
               <Megaphone className="w-5 h-5 mr-2" />
-              บันทึกและสรุปข้อมูลแคมเปญเพจส่วนตัวเซลล์
+              บันทึกและสรุปข้อมูลแคมเปญเพจสาขา
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              กรอกข้อมูล: ชื่อแคมเปญ, ประเภท, งบ, จำนวนเงินที่จ่าย, inbox และสรุปสถิติแยกตามเซลล์
+              กรอกข้อมูล: ชื่อแคมเปญ, ประเภท, งบ, จำนวนเงินที่จ่าย, inbox และสรุปสถิติแยกตามสาขา/เซลล์
             </p>
           </div>
 
@@ -183,7 +183,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
               type="button"
               onClick={handleExportExcel}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
-              title="ดาวน์โหลดข้อมูลแคมเปญเพจเซลล์เป็น Excel"
+              title="ดาวน์โหลดข้อมูลแคมเปญเพจสาขาเป็น Excel"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Export Excel ({filteredCampaigns.length})</span>
@@ -195,7 +195,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
             >
               <Plus className="w-4 h-4" />
-              <span>เพิ่มแคมเปญเพจเซลล์</span>
+              <span>เพิ่มแคมเปญเพจสาขา</span>
             </button>
           </div>
         </div>
@@ -301,7 +301,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
               {filteredCampaigns.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-8 text-slate-400">
-                    ยังไม่มีข้อมูลแคมเปญเพจส่วนตัวเซลล์
+                    ยังไม่มีข้อมูลแคมเปญเพจสาขา
                   </td>
                 </tr>
               ) : (
@@ -363,7 +363,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-sm font-bold text-red-700 flex items-center gap-1.5">
                 <Megaphone className="w-4 h-4" />
-                {editId ? 'แก้ไขแคมเปญเพจส่วนตัวเซลล์' : 'เพิ่มแคมเปญเพจส่วนตัวเซลล์'}
+                {editId ? 'แก้ไขแคมเปญเพจสาขา' : 'เพิ่มแคมเปญเพจสาขา'}
               </h3>
               <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-4 h-4" />

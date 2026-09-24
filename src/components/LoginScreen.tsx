@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Car, Lock, User, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle } from 'lucide-react';
 import { AppUser } from '../types';
 
 interface LoginScreenProps {
@@ -33,12 +33,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, syncStatus = 
         setErrorMessage(res.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       }
     }, 250);
-  };
-
-  const handleFillDemo = () => {
-    setUsername('salacms');
-    setPassword('salacms');
-    setErrorMessage('');
   };
 
   return (
@@ -167,33 +161,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, syncStatus = 
               )}
             </button>
           </form>
-
-          {/* Quick Demo Fill Pill */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="bg-red-50/80 border border-red-200/80 rounded-2xl p-3.5 text-xs">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-bold text-red-800 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-red-600" />
-                  บัญชีผู้ใช้หลัก (Super Admin):
-                </span>
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  className="text-[11px] font-bold text-red-700 hover:text-red-900 bg-white hover:bg-red-100 px-2.5 py-0.5 rounded-lg border border-red-300 transition"
-                >
-                  คลิกกรอกอัตโนมัติ
-                </button>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-slate-700 font-mono text-[11px]">
-                <span>
-                  User: <strong className="text-red-700">salacms</strong>
-                </span>
-                <span>
-                  Password: <strong className="text-red-700">salacms</strong>
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer info */}

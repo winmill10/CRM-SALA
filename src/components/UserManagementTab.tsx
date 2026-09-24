@@ -592,7 +592,7 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
             <div className="bg-white p-3 rounded-lg border border-slate-200">
               <span className="font-bold text-emerald-700 block mb-1">3. Sales (ทีมขาย)</span>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                ผูกกับโปรไฟล์เซลล์ สามารถลงข้อมูลลูกค้า ติดตามสถานะ ดูแคมเปญเพจส่วนตัว และอัปเดตผลการติดต่อลูกค้าของตนเองได้
+                ผูกกับโปรไฟล์เซลล์ สามารถลงข้อมูลลูกค้า ติดตามสถานะ ดูแคมเปญเพจสาขา และอัปเดตผลการติดต่อลูกค้าของตนเองได้
               </p>
             </div>
           </div>
