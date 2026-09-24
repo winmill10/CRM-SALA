@@ -1,0 +1,85 @@
+export interface StatusHistoryItem {
+  status: string;
+  date: string;
+}
+
+export interface Customer {
+  id: number;
+  contactDate: string; // YYYY-MM-DD
+  entryDateTime: string; // YYYY-MM-DD HH:mm:ss
+  fbName: string;
+  salesAgent: string;
+  category: string;
+  subCategory: string;
+  status: 'PS' | 'BK' | 'RS' | 'CC' | 'ได้คุย' | string;
+  statusHistory: StatusHistoryItem[];
+  phone: string;
+  image?: string;
+  followUpResult: string;
+}
+
+export interface SalesProfile {
+  id: number;
+  nickname: string;
+  fullName: string;
+  phone: string;
+  facebook: string;
+  avatar: string;
+  note: string;
+  hidden: boolean;
+}
+
+export interface Expense {
+  id: number;
+  month: string; // YYYY-MM
+  code: string;
+  name: string;
+  category: string;
+  budget: number;
+  spend: number;
+  inboxCount: number;
+  link?: string;
+}
+
+export interface SalesCampaign {
+  id: number;
+  month: string; // YYYY-MM
+  salesAgent: string;
+  campaignName: string;
+  category: string;
+  budget: number;
+  spend: number;
+  inbox: number;
+}
+
+export interface AppUser {
+  id: string;
+  username: string;
+  password?: string;
+  displayName: string;
+  role: 'superadmin' | 'admin' | 'sales';
+  salesNickname?: string;
+  createdAt?: string;
+}
+
+export interface AppData {
+  salesAgents: string[];
+  salesProfiles: SalesProfile[];
+  categories: Record<string, string[]>;
+  categoryColors: Record<string, string>;
+  statuses: string[];
+  customers: Customer[];
+  expenses: Expense[];
+  salesCampaigns: SalesCampaign[];
+  users?: AppUser[];
+}
+
+export type TabType =
+  | 'form'
+  | 'table'
+  | 'salesreport'
+  | 'salescampaign'
+  | 'reportcustomer'
+  | 'expenses'
+  | 'reportexpenses'
+  | 'settings';

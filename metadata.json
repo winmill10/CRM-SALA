@@ -1,0 +1,6 @@
+{
+  "name": "ระบบบริหารจัดการข้อมูลลูกค้าและแคมเปญเพจ",
+  "description": "ระบบ CRM และบริหารจัดการแคมเปญเพจ สถิติลูกค้า งบประมาณการตลาด และผลงานเซลล์ขายรถยนต์",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

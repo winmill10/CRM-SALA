@@ -1,0 +1,590 @@
+import React, { useState } from 'react';
+import { AppData, AppUser } from '../types';
+import {
+  Settings,
+  Plus,
+  Trash2,
+  Palette,
+  Download,
+  Upload,
+  RotateCcw,
+  Users,
+  Shield,
+  Key,
+  CheckCircle,
+  UserCheck
+} from 'lucide-react';
+
+interface SettingsTabProps {
+  appData: AppData;
+  onAddCategory: (name: string, color: string) => boolean;
+  onDeleteCategory: (name: string) => void;
+  onAddSubCategory: (categoryName: string, subName: string) => boolean;
+  onDeleteSubCategory: (categoryName: string, index: number) => void;
+  onResetData: () => void;
+  onSaveUser?: (user: AppUser) => void;
+  onDeleteUser?: (id: string) => void;
+  currentUser?: AppUser | null;
+}
+
+export const SettingsTab: React.FC<SettingsTabProps> = ({
+  appData,
+  onAddCategory,
+  onDeleteCategory,
+  onAddSubCategory,
+  onDeleteSubCategory,
+  onResetData,
+  onSaveUser,
+  onDeleteUser,
+  currentUser,
+}) => {
+  // Category state
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#ef4444');
+
+  const categories = Object.keys(appData.categories);
+  const [selectedCat, setSelectedCat] = useState<string>(categories[0] || '');
+  const [newSubName, setNewSubName] = useState('');
+
+  // User Management state
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newDisplayName, setNewDisplayName] = useState('');
+  const [newRole, setNewRole] = useState<'admin' | 'sales'>('admin');
+  const [userMsg, setUserMsg] = useState('');
+
+  // Password reset modal or inline
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editPassValue, setEditPassValue] = useState('');
+
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    const ok = onAddCategory(newCatName.trim(), newCatColor);
+    if (ok) {
+      if (!selectedCat) setSelectedCat(newCatName.trim());
+      setNewCatName('');
+    } else {
+      alert('ประเภทนี้มีอยู่แล้วในระบบ');
+    }
+  };
+
+  const handleAddSubCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCat) {
+      alert('กรุณาเลือกประเภทก่อน');
+      return;
+    }
+    if (!newSubName.trim()) return;
+    const ok = onAddSubCategory(selectedCat, newSubName.trim());
+    if (ok) {
+      setNewSubName('');
+    } else {
+      alert('รุ่นย่อยนี้มีอยู่แล้วในประเภทนี้');
+    }
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserMsg('');
+    const u = newUsername.trim().toLowerCase();
+    const p = newPassword.trim();
+    if (!u || !p) {
+      alert('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+      return;
+    }
+
+    const existing = (appData.users || []).find((usr) => usr.username.toLowerCase() === u);
+    if (existing || u === 'salacms') {
+      alert('ชื่อผู้ใช้งานนี้มีอยู่ในระบบแล้ว');
+      return;
+    }
+
+    if (onSaveUser) {
+      onSaveUser({
+        id: `user-${Date.now()}`,
+        username: u,
+        password: p,
+        displayName: newDisplayName.trim() || u,
+        role: newRole,
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      });
+
+      setNewUsername('');
+      setNewPassword('');
+      setNewDisplayName('');
+      setUserMsg('เพิ่มผู้ใช้งานสำเร็จ');
+      setTimeout(() => setUserMsg(''), 3000);
+    }
+  };
+
+  const handleUpdatePassword = (u: AppUser) => {
+    if (!editPassValue.trim()) return;
+    if (onSaveUser) {
+      onSaveUser({
+        ...u,
+        password: editPassValue.trim(),
+      });
+      setEditingUserId(null);
+      setEditPassValue('');
+      alert(`เปลี่ยนรหัสผ่านสำหรับ ${u.username} เรียบร้อยแล้ว`);
+    }
+  };
+
+  const handleExportBackup = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(appData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `car_crm_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const json = JSON.parse(evt.target?.result as string);
+        if (json && json.categories && json.customers) {
+          localStorage.setItem('car_page_app_data_v6', JSON.stringify(json));
+          window.location.reload();
+        } else {
+          alert('รูปแบบไฟล์ JSON ไม่ถูกต้อง');
+        }
+      } catch (err) {
+        alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const currentSubList = selectedCat && appData.categories[selectedCat] ? appData.categories[selectedCat] : [];
+
+  const userList: AppUser[] = appData.users && appData.users.length > 0
+    ? appData.users
+    : [
+        {
+          id: 'user-salacms',
+          username: 'salacms',
+          password: 'salacms',
+          displayName: 'ผู้ดูแลระบบหลัก (salacms)',
+          role: 'superadmin',
+          createdAt: '2026-09-01 09:00:00',
+        },
+      ];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8">
+        <div className="border-b border-slate-100 pb-4 mb-6">
+          <h2 className="text-xl font-bold text-red-700 flex items-center">
+            <Settings className="w-5 h-5 mr-2" />
+            ตั้งค่าระบบ
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            จัดการประเภท สี และรุ่นย่อยของรถยนต์ในโชว์รูม จัดการผู้ใช้งานระบบ และจัดการการสำรองข้อมูล
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Section 1: Categories */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+              <Palette className="w-4 h-4 text-red-600" />
+              1. จัดการประเภทรถ (Categories) และกำหนดสีประจำประเภท
+            </h3>
+
+            <form onSubmit={handleAddCategory} className="flex flex-wrap gap-2.5 max-w-xl mb-4 items-center">
+              <input
+                type="text"
+                placeholder="ชื่อประเภท เช่น EV, SUV, รถเพื่อการพาณิชย์"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="flex-grow p-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+              />
+              <div className="flex items-center gap-1 border border-slate-300 p-1 rounded-xl bg-white shrink-0">
+                <label className="text-[11px] text-slate-500 px-1 font-semibold">เลือกสี:</label>
+                <input
+                  type="color"
+                  value={newCatColor}
+                  onChange={(e) => setNewCatColor(e.target.value)}
+                  className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent"
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs shrink-0 flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                เพิ่มประเภท
+              </button>
+            </form>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">
+                ประเภทที่มีอยู่ในระบบปัจจุบัน:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => {
+                  const color = appData.categoryColors[cat] || '#64748b';
+                  return (
+                    <div
+                      key={cat}
+                      className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs text-xs"
+                    >
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-bold text-slate-800">{cat}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`คุณต้องการลบประเภท "${cat}" พร้อมรุ่นย่อยทั้งหมดใช่หรือไม่?`)) {
+                            onDeleteCategory(cat);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-rose-600 ml-1 transition"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Sub-categories / Models */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-red-600" />
+              2. จัดการรุ่นย่อย (Sub-Category) แยกตามประเภทรถ
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-slate-600">เลือกประเภท</label>
+                <select
+                  value={selectedCat}
+                  onChange={(e) => setSelectedCat(e.target.value)}
+                  className="w-full p-2 text-xs border border-slate-300 rounded-xl bg-white font-medium"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-slate-600">เพิ่มรุ่นย่อยใหม่</label>
+                <form onSubmit={handleAddSubCategory} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="ชื่อรุ่นย่อยใหม่"
+                    value={newSubName}
+                    onChange={(e) => setNewSubName(e.target.value)}
+                    className="w-full p-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-red-500 bg-white"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">
+                รุ่นย่อยในประเภท &ldquo;{selectedCat}&rdquo;:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {currentSubList.length === 0 ? (
+                  <span className="text-xs text-slate-400">ยังไม่มีรุ่นย่อยในประเภทนี้</span>
+                ) : (
+                  currentSubList.map((sub, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs text-xs"
+                    >
+                      <span className="font-medium text-slate-700">{sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`ต้องการลบรุ่นย่อย "${sub}" ใช่หรือไม่?`)) {
+                            onDeleteSubCategory(selectedCat, idx);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-rose-600 transition"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Users Management */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-red-600" />
+                3. จัดการผู้ใช้งานและสิทธิ์การเข้าสู่ระบบ (User Management)
+              </h3>
+              <span className="text-[11px] bg-red-100 text-red-800 font-semibold px-2 py-0.5 rounded-md">
+                บัญชีหลัก: salacms
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4">
+              ควบคุมบัญชีผู้เข้าใช้งานระบบ และเปลี่ยนรหัสผ่านเพื่อความปลอดภัยของข้อมูล
+            </p>
+
+            {/* User Form */}
+            <form onSubmit={handleAddUser} className="bg-white p-4 rounded-xl border border-slate-200 mb-4 text-xs">
+              <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-1">
+                <Plus className="w-3.5 h-3.5 text-red-600" />
+                เพิ่มผู้ใช้งานใหม่
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1">
+                    ชื่อผู้ใช้ (Username) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="เช่น manager1"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1">
+                    รหัสผ่าน (Password) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="รหัสผ่าน"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1">ชื่อที่แสดง (Display Name)</label>
+                  <input
+                    type="text"
+                    placeholder="เช่น ผู้จัดการสาขา"
+                    value={newDisplayName}
+                    onChange={(e) => setNewDisplayName(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1">สิทธิ์ (Role)</label>
+                  <select
+                    value={newRole}
+                    onChange={(e) => setNewRole(e.target.value as 'admin' | 'sales')}
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:ring-1 focus:ring-red-500"
+                  >
+                    <option value="admin">ผู้ดูแล (Admin)</option>
+                    <option value="sales">ทีมขาย (Sales)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-3 flex justify-between items-center">
+                {userMsg && (
+                  <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    {userMsg}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  className="ml-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-1 shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>บันทึกผู้ใช้</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Users Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-xs text-left bg-white">
+                <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="p-2.5">ชื่อผู้ใช้งาน</th>
+                    <th className="p-2.5">ชื่อที่แสดง</th>
+                    <th className="p-2.5">ระดับสิทธิ์</th>
+                    <th className="p-2.5">รหัสผ่าน</th>
+                    <th className="p-2.5 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {userList.map((usr) => {
+                    const isSuper = usr.username === 'salacms' || usr.role === 'superadmin';
+                    const isEditing = editingUserId === usr.id;
+
+                    return (
+                      <tr key={usr.id} className="hover:bg-slate-50">
+                        <td className="p-2.5 font-bold font-mono text-slate-900 flex items-center gap-1.5">
+                          {isSuper ? (
+                            <Shield className="w-3.5 h-3.5 text-red-600" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                          )}
+                          <span>{usr.username}</span>
+                          {isSuper && (
+                            <span className="text-[10px] bg-red-50 text-red-700 px-1.5 py-0.2 rounded border border-red-200 font-semibold">
+                              User หลัก
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-slate-700">{usr.displayName || usr.username}</td>
+                        <td className="p-2.5">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isSuper
+                                ? 'bg-red-600 text-white'
+                                : usr.role === 'admin'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {usr.role.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="p-2.5 font-mono text-slate-600">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                placeholder="รหัสผ่านใหม่"
+                                value={editPassValue}
+                                onChange={(e) => setEditPassValue(e.target.value)}
+                                className="p-1 text-xs border border-slate-300 rounded font-mono w-32 focus:ring-1 focus:ring-red-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePassword(usr)}
+                                className="bg-red-600 text-white px-2 py-1 rounded text-[11px] font-medium hover:bg-red-700"
+                              >
+                                บันทึก
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingUserId(null);
+                                  setEditPassValue('');
+                                }}
+                                className="text-slate-400 hover:text-slate-600 text-[11px]"
+                              >
+                                ยกเลิก
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span>••••••••</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingUserId(usr.id);
+                                  setEditPassValue(usr.password || '');
+                                }}
+                                className="text-slate-400 hover:text-red-700 text-[11px] flex items-center gap-0.5"
+                                title="เปลี่ยนรหัสผ่าน"
+                              >
+                                <Key className="w-3 h-3" />
+                                <span>เปลี่ยนรหัส</span>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          {!isSuper && onDeleteUser && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`คุณต้องการลบผู้ใช้งาน "${usr.username}" หรือไม่?`)) {
+                                  onDeleteUser(usr.id);
+                                }
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-1 transition"
+                              title="ลบผู้ใช้งาน"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 4: Backup & Restore */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <h3 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+              <Download className="w-4 h-4 text-red-600" />
+              4. สำรองข้อมูลและกู้คืน (Backup & Restore)
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              ดาวน์โหลดไฟล์ข้อมูลทั้งหมดของระบบเก็บไว้ หรือนำไฟล์สำรองมาเปิดใช้งานในเครื่องนี้
+            </p>
+
+            <div className="flex flex-wrap gap-3 items-center">
+              <button
+                type="button"
+                onClick={handleExportBackup}
+                className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition"
+              >
+                <Download className="w-3.5 h-3.5 text-blue-600" />
+                ดาวน์โหลดไฟล์สำรอง (JSON)
+              </button>
+
+              <label className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition">
+                <Upload className="w-3.5 h-3.5 text-emerald-600" />
+                <span>นำเข้าไฟล์สำรอง (Restore)</span>
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleImportBackup}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('คุณต้องการรีเซ็ตฐานข้อมูลเป็นค่าเริ่มต้นทั้งหมดหรือไม่? ข้อมูลที่บันทึกไว้จะถูกเขียนทับ')) {
+                    onResetData();
+                  }
+                }}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ml-auto"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                รีเซ็ตข้อมูลเริ่มต้น (Default Demo)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

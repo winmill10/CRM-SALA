@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "System users and authentication records",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "description": "Unique username for login" },
+        "password": { "type": "string", "description": "Password credential" },
+        "displayName": { "type": "string", "description": "Display name of the user" },
+        "role": { "type": "string", "description": "Role: admin, manager, or sales" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["username", "password", "displayName", "role"]
+    },
+    "customers": {
+      "title": "Customer",
+      "description": "CRM customer records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Unique ID" },
+        "contactDate": { "type": "string", "description": "Contact date YYYY-MM-DD" },
+        "entryDateTime": { "type": "string", "description": "Record creation date and time" },
+        "fbName": { "type": "string", "description": "Facebook customer name" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "salesAgent": { "type": "string", "description": "Assigned sales agent" },
+        "category": { "type": "string", "description": "Car model category" },
+        "subCategory": { "type": "string", "description": "Car model subcategory" },
+        "status": { "type": "string", "description": "Status: PS, BK, RS, CC, ได้คุย" },
+        "notes": { "type": "string", "description": "Follow-up notes" },
+        "attachment": { "type": "string", "description": "Image attachment URL/data" },
+        "statusHistory": { "type": "array", "description": "Status update log" }
+      },
+      "required": ["id", "contactDate", "fbName", "salesAgent", "category", "subCategory", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/users" },
+      "description": "User account documents"
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/customers" },
+      "description": "Customer inquiry and lead documents"
+    }
+  }
+}
