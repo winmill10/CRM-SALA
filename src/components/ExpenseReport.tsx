@@ -48,9 +48,14 @@ Chart.register(
 interface ExpenseReportProps {
   appData: AppData;
   availableYears: string[];
+  canExport?: boolean;
 }
 
-export const ExpenseReport: React.FC<ExpenseReportProps> = ({ appData, availableYears }) => {
+export const ExpenseReport: React.FC<ExpenseReportProps> = ({
+  appData,
+  availableYears,
+  canExport = true,
+}) => {
   const [viewMode, setViewMode] = useState<'year' | 'month'>('year');
   const [selectedYear, setSelectedYear] = useState(availableYears[0] || '2026');
   const [selectedMonth, setSelectedMonth] = useState(getCurrentYearMonth());
@@ -286,15 +291,17 @@ export const ExpenseReport: React.FC<ExpenseReportProps> = ({ appData, available
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleExportReport}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-              title="ดาวน์โหลดรายงานสรุปเป็น Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export สรุปงบ (Excel)</span>
-            </button>
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleExportReport}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+                title="ดาวน์โหลดรายงานสรุปเป็น Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export สรุปงบ (Excel)</span>
+              </button>
+            )}
 
             <div className="flex items-center gap-1.5 bg-red-50 px-2.5 py-1.5 rounded-xl border border-red-200">
               <label className="text-xs font-bold text-red-800">รูปแบบ:</label>

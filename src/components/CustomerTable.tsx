@@ -23,6 +23,7 @@ interface CustomerTableProps {
   onDeleteCustomer: (id: number) => void;
   onViewImage: (src: string) => void;
   availableYears: string[];
+  canExport?: boolean;
 }
 
 export const CustomerTable: React.FC<CustomerTableProps> = ({
@@ -31,6 +32,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   onDeleteCustomer,
   onViewImage,
   availableYears,
+  canExport = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -201,15 +203,17 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
               <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-300">ได้คุย</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportExcel}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export Excel</span>
-            </button>
-          </div>
+          {canExport && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportExcel}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Filters & Search Bar */}

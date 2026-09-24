@@ -19,6 +19,7 @@ interface ExpenseTableProps {
   onSaveExpense: (expense: Omit<Expense, 'id'> & { id?: number }) => void;
   onDeleteExpense: (id: number) => void;
   availableYears: string[];
+  canExport?: boolean;
 }
 
 export const ExpenseTable: React.FC<ExpenseTableProps> = ({
@@ -26,6 +27,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
   onSaveExpense,
   onDeleteExpense,
   availableYears,
+  canExport = true,
 }) => {
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
@@ -199,15 +201,17 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
-              title="ดาวน์โหลดตารางงบประมาณเป็นไฟล์ Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export Excel ({filteredExpenses.length})</span>
-            </button>
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+                title="ดาวน์โหลดตารางงบประมาณเป็นไฟล์ Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel ({filteredExpenses.length})</span>
+              </button>
+            )}
 
             <button
               type="button"

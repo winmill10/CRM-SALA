@@ -50,7 +50,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'sales'>('admin');
+  const [newRole, setNewRole] = useState<'admin' | 'mkt' | 'sales'>('admin');
   const [userMsg, setUserMsg] = useState('');
 
   // Password reset modal or inline
@@ -396,11 +396,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <label className="block font-medium text-slate-600 mb-1">สิทธิ์ (Role)</label>
                   <select
                     value={newRole}
-                    onChange={(e) => setNewRole(e.target.value as 'admin' | 'sales')}
+                    onChange={(e) => setNewRole(e.target.value as 'admin' | 'mkt' | 'sales')}
                     className="w-full p-2 border border-slate-300 rounded-lg bg-white focus:ring-1 focus:ring-red-500"
                   >
-                    <option value="admin">ผู้ดูแล (Admin)</option>
-                    <option value="sales">ทีมขาย (Sales)</option>
+                    <option value="admin">ผู้ดูแล (Admin) - จัดการผู้ใช้ ตั้งค่า และ Export ได้</option>
+                    <option value="mkt">การตลาด (MKT) - ตั้งค่าไม่ได้ และ Export ไม่ได้</option>
+                    <option value="sales">ทีมขาย (Sales) - ตั้งค่าไม่ได้ และ Export ไม่ได้</option>
                   </select>
                 </div>
               </div>
@@ -462,6 +463,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                                 ? 'bg-red-600 text-white'
                                 : usr.role === 'admin'
                                 ? 'bg-amber-100 text-amber-800'
+                                : usr.role === 'mkt'
+                                ? 'bg-indigo-100 text-indigo-800'
                                 : 'bg-slate-100 text-slate-700'
                             }`}
                           >

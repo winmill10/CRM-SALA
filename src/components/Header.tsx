@@ -38,6 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+
   // Row 1: งานข้อมูลลูกค้า & แคมเปญสาขา
   const row1Tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'form', label: 'ลงข้อมูลลูกค้า', icon: <UserPlus className="w-3.5 h-3.5 mr-1" /> },
@@ -47,13 +49,15 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'reportcustomer', label: 'รีพอร์ตรวม', icon: <PieChart className="w-3.5 h-3.5 mr-1" /> },
   ];
 
-  // Row 2: งบประมาณ บริหารจัดการระบบ
-  const row2Tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  // Row 2: งบประมาณ บริหารจัดการระบบ (ซ่อน 'users' และ 'settings' สำหรับ MKT และ Sales)
+  const allRow2Tabs: { id: TabType; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { id: 'expenses', label: 'งบประมาณ', icon: <Wallet className="w-3.5 h-3.5 mr-1" /> },
     { id: 'reportexpenses', label: 'รีพอร์ตค่าใช้จ่าย', icon: <TrendingUp className="w-3.5 h-3.5 mr-1" /> },
-    { id: 'users', label: 'จัดการผู้ใช้', icon: <Users className="w-3.5 h-3.5 mr-1" /> },
-    { id: 'settings', label: 'ตั้งค่าระบบ', icon: <Settings className="w-3.5 h-3.5 mr-1" /> },
+    { id: 'users', label: 'จัดการผู้ใช้', icon: <Users className="w-3.5 h-3.5 mr-1" />, adminOnly: true },
+    { id: 'settings', label: 'ตั้งค่าระบบ', icon: <Settings className="w-3.5 h-3.5 mr-1" />, adminOnly: true },
   ];
+
+  const row2Tabs = allRow2Tabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -133,8 +137,24 @@ export const Header: React.FC<HeaderProps> = ({
                       <span className="font-bold text-white font-mono text-[11px]">
                         {currentUser.username}
                       </span>
-                      <span className="text-[9px] bg-red-950/70 text-amber-300 px-1 py-0.2 rounded font-semibold border border-amber-500/40 uppercase">
-                        {currentUser.role === 'superadmin' ? 'Super Admin' : currentUser.role}
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase border ${
+                          currentUser.role === 'superadmin'
+                            ? 'bg-red-950/80 text-amber-300 border-amber-500/40'
+                            : currentUser.role === 'admin'
+                            ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                            : currentUser.role === 'mkt'
+                            ? 'bg-indigo-950/80 text-indigo-300 border-indigo-400/40'
+                            : 'bg-emerald-950/80 text-emerald-300 border-emerald-400/40'
+                        }`}
+                      >
+                        {currentUser.role === 'superadmin'
+                          ? 'Super Admin'
+                          : currentUser.role === 'admin'
+                          ? 'Admin'
+                          : currentUser.role === 'mkt'
+                          ? 'Marketing'
+                          : 'Sales'}
                       </span>
                     </div>
                     <span className="text-[10px] text-red-200 truncate max-w-[120px]">

@@ -22,6 +22,7 @@ interface SalesCampaignTabProps {
   onSaveCampaign: (campaign: Omit<SalesCampaign, 'id'> & { id?: number }) => void;
   onDeleteCampaign: (id: number) => void;
   availableYears: string[];
+  canExport?: boolean;
 }
 
 export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
@@ -29,6 +30,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
   onSaveCampaign,
   onDeleteCampaign,
   availableYears,
+  canExport = true,
 }) => {
   const [filterSales, setFilterSales] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -179,15 +181,17 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
-              title="ดาวน์โหลดข้อมูลแคมเปญเพจสาขาเป็น Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export Excel ({filteredCampaigns.length})</span>
-            </button>
+            {canExport && (
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+                title="ดาวน์โหลดข้อมูลแคมเปญเพจสาขาเป็น Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel ({filteredCampaigns.length})</span>
+              </button>
+            )}
 
             <button
               type="button"

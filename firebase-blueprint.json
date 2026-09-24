@@ -8,7 +8,7 @@
         "username": { "type": "string", "description": "Unique username for login" },
         "password": { "type": "string", "description": "Password credential" },
         "displayName": { "type": "string", "description": "Display name of the user" },
-        "role": { "type": "string", "description": "Role: admin, manager, or sales" },
+        "role": { "type": "string", "description": "Role: superadmin, admin, mkt, or sales" },
         "createdAt": { "type": "string", "description": "Creation timestamp" }
       },
       "required": ["username", "password", "displayName", "role"]

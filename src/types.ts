@@ -52,12 +52,14 @@ export interface SalesCampaign {
   inbox: number;
 }
 
+export type UserRole = 'superadmin' | 'admin' | 'mkt' | 'sales';
+
 export interface AppUser {
   id: string;
   username: string;
   password?: string;
   displayName: string;
-  role: 'superadmin' | 'admin' | 'sales';
+  role: UserRole;
   salesNickname?: string;
   createdAt?: string;
 }

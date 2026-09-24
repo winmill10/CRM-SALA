@@ -268,6 +268,31 @@ export const INITIAL_DATA: AppData = {
       displayName: "ผู้ดูแลระบบหลัก (salacms)",
       role: "superadmin",
       createdAt: "2026-09-01 09:00:00"
+    },
+    {
+      id: "user-admin01",
+      username: "admin01",
+      password: "password123",
+      displayName: "คุณสมศักดิ์ (Admin)",
+      role: "admin",
+      createdAt: "2026-09-02 10:00:00"
+    },
+    {
+      id: "user-mkt01",
+      username: "mkt01",
+      password: "password123",
+      displayName: "คุณนภัสสร (Marketing)",
+      role: "mkt",
+      createdAt: "2026-09-03 11:00:00"
+    },
+    {
+      id: "user-sale01",
+      username: "sale01",
+      password: "password123",
+      displayName: "คุณสมชาย (Sales)",
+      role: "sales",
+      salesNickname: "คุณสมชาย",
+      createdAt: "2026-09-04 12:00:00"
     }
   ]
 };

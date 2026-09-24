@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AppData, AppUser } from '../types';
+import { AppData, AppUser, UserRole } from '../types';
 import {
   Users,
   UserPlus,
@@ -19,7 +19,8 @@ import {
   Sparkles,
   X,
   Save,
-  Contact
+  Contact,
+  TrendingUp
 } from 'lucide-react';
 
 interface UserManagementTabProps {
@@ -38,7 +39,7 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
   onLogout,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'superadmin' | 'admin' | 'sales'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'superadmin' | 'admin' | 'mkt' | 'sales'>('all');
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,14 +50,14 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'sales'>('admin');
+  const [newRole, setNewRole] = useState<'admin' | 'mkt' | 'sales'>('admin');
   const [newSalesNickname, setNewSalesNickname] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [formError, setFormError] = useState('');
 
   // Form states for Edit User
   const [editDisplayName, setEditDisplayName] = useState('');
-  const [editRole, setEditRole] = useState<'superadmin' | 'admin' | 'sales'>('admin');
+  const [editRole, setEditRole] = useState<UserRole>('admin');
   const [editSalesNickname, setEditSalesNickname] = useState('');
 
   // Form states for Password Change
@@ -93,6 +94,7 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
       if (roleFilter !== 'all') {
         if (roleFilter === 'superadmin' && u.role !== 'superadmin') return false;
         if (roleFilter === 'admin' && u.role !== 'admin') return false;
+        if (roleFilter === 'mkt' && u.role !== 'mkt') return false;
         if (roleFilter === 'sales' && u.role !== 'sales') return false;
       }
       if (searchQuery.trim()) {
@@ -109,6 +111,7 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
   // Stats
   const totalCount = userList.length;
   const adminCount = userList.filter((u) => u.role === 'admin' || u.role === 'superadmin').length;
+  const mktCount = userList.filter((u) => u.role === 'mkt').length;
   const salesCount = userList.filter((u) => u.role === 'sales').length;
 
   // Handle Add User
@@ -341,34 +344,44 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
+          <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500 font-medium">ผู้ใช้งานทั้งหมด</p>
               <p className="text-2xl font-black text-slate-800 mt-1 font-mono">{totalCount} คน</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Users className="w-4.5 h-4.5" />
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+          <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-medium">ผู้ดูแลระบบ (Admins)</p>
+              <p className="text-xs text-slate-500 font-medium">ผู้ดูแลระบบ (Admin)</p>
               <p className="text-2xl font-black text-red-700 mt-1 font-mono">{adminCount} คน</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-              <Shield className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+              <Shield className="w-4.5 h-4.5" />
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
+          <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-medium">ทีมขาย (Sales Accounts)</p>
+              <p className="text-xs text-slate-500 font-medium">การตลาด (MKT)</p>
+              <p className="text-2xl font-black text-indigo-700 mt-1 font-mono">{mktCount} คน</p>
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <TrendingUp className="w-4.5 h-4.5 text-indigo-600" />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500 font-medium">ทีมขาย (Sales)</p>
               <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">{salesCount} คน</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <UserCheck className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <UserCheck className="w-4.5 h-4.5" />
             </div>
           </div>
         </div>
@@ -386,9 +399,9 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs text-slate-500 font-medium">กรองสิทธิ์:</span>
-            <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+            <span className="text-xs text-slate-500 font-medium shrink-0">กรองสิทธิ์:</span>
+            <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setRoleFilter('all')}
@@ -406,6 +419,15 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                 }`}
               >
                 ผู้ดูแล ({adminCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoleFilter('mkt')}
+                className={`px-2.5 py-1 rounded-md transition font-medium ${
+                  roleFilter === 'mkt' ? 'bg-red-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                การตลาด ({mktCount})
               </button>
               <button
                 type="button"
@@ -461,6 +483,8 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                                 ? 'bg-red-100 text-red-700 border border-red-200'
                                 : u.role === 'admin'
                                 ? 'bg-amber-100 text-amber-800'
+                                : u.role === 'mkt'
+                                ? 'bg-indigo-100 text-indigo-800'
                                 : 'bg-slate-100 text-slate-700'
                             }`}
                           >
@@ -499,6 +523,8 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                               ? 'bg-red-600 text-white'
                               : u.role === 'admin'
                               ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : u.role === 'mkt'
+                              ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                               : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           }`}
                         >
@@ -506,6 +532,8 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                             ? 'SUPER ADMIN'
                             : u.role === 'admin'
                             ? 'ADMIN (ผู้ดูแล)'
+                            : u.role === 'mkt'
+                            ? 'MKT (การตลาด)'
                             : 'SALES (ทีมขาย)'}
                         </span>
                       </td>
@@ -576,23 +604,29 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
             <Shield className="w-4 h-4 text-red-600" />
             คำอธิบายระดับสิทธิ์การใช้งาน (Role &amp; Permissions)
           </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-600">
-            <div className="bg-white p-3 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-slate-600">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="font-bold text-red-700 block mb-1">1. Super Admin (salacms)</span>
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 สิทธิ์สูงสุดของระบบ สามารถจัดการผู้ใช้ทั้งหมด จัดการข้อมูลลูกค้า แคมเปญ งบประมาณ ตั้งค่าระบบ และรีเซ็ตข้อมูลได้
               </p>
             </div>
-            <div className="bg-white p-3 rounded-lg border border-slate-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="font-bold text-amber-700 block mb-1">2. Admin (ผู้ดูแลระบบ)</span>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                เข้าถึงการลงข้อมูลลูกค้า ดูตาราง รีพอร์ตรวม รายงานเซลล์ จัดการงบประมาณรายเดือน และส่งออกไฟล์ Excel ได้ครบถ้วน
+                สามารถจัดการระบบผู้ใช้ได้, จัดการข้อมูลเซลล์, เข้าใช้งานตั้งค่าระบบได้, Export ได้, ทำได้ทุกอย่างในระบบ
               </p>
             </div>
-            <div className="bg-white p-3 rounded-lg border border-slate-200">
-              <span className="font-bold text-emerald-700 block mb-1">3. Sales (ทีมขาย)</span>
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
+              <span className="font-bold text-indigo-700 block mb-1">3. MKT (ฝ่ายการตลาด)</span>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                ผูกกับโปรไฟล์เซลล์ สามารถลงข้อมูลลูกค้า ติดตามสถานะ ดูแคมเปญเพจสาขา และอัปเดตผลการติดต่อลูกค้าของตนเองได้
+                บันทึกข้อมูลลูกค้า ดูงบประมาณและรีพอร์ตได้ แต่<strong className="text-rose-600">ตั้งค่าระบบไม่ได้</strong> และ <strong className="text-rose-600">Export ไม่ได้</strong>
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
+              <span className="font-bold text-emerald-700 block mb-1">4. Sales (ฝ่ายขาย)</span>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                บันทึกและติดตามลูกค้า ดูแคมเปญเพจสาขาได้ แต่<strong className="text-rose-600">ตั้งค่าระบบไม่ได้</strong> และ <strong className="text-rose-600">Export ไม่ได้</strong>
               </p>
             </div>
           </div>
@@ -680,11 +714,12 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                 <label className="block font-semibold text-slate-700 mb-1">ระดับสิทธิ์ (Role)</label>
                 <select
                   value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as 'admin' | 'sales')}
+                  onChange={(e) => setNewRole(e.target.value as 'admin' | 'mkt' | 'sales')}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600"
                 >
-                  <option value="admin">ผู้ดูแลระบบ (Admin) - ดูแลจัดการข้อมูลและงบประมาณ</option>
-                  <option value="sales">ทีมขาย (Sales) - บันทึกและติดตามลูกค้า</option>
+                  <option value="admin">ผู้ดูแลระบบ (Admin) - จัดการผู้ใช้, จัดการเซลล์, ตั้งค่าระบบ, Export ได้</option>
+                  <option value="mkt">ฝ่ายการตลาด (MKT) - บันทึกข้อมูลและดูงบ, ตั้งค่าระบบไม่ได้, Export ไม่ได้</option>
+                  <option value="sales">ทีมขาย (Sales) - บันทึกและติดตามลูกค้า, ตั้งค่าระบบไม่ได้, Export ไม่ได้</option>
                 </select>
               </div>
 
@@ -765,11 +800,12 @@ export const UserManagementTab: React.FC<UserManagementTabProps> = ({
                   <label className="block font-semibold text-slate-700 mb-1">ระดับสิทธิ์ (Role)</label>
                   <select
                     value={editRole}
-                    onChange={(e) => setEditRole(e.target.value as 'admin' | 'sales')}
+                    onChange={(e) => setEditRole(e.target.value as UserRole)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600"
                   >
-                    <option value="admin">ผู้ดูแลระบบ (Admin)</option>
-                    <option value="sales">ทีมขาย (Sales)</option>
+                    <option value="admin">ผู้ดูแลระบบ (Admin) - จัดการผู้ใช้, จัดการเซลล์, ตั้งค่าระบบ, Export ได้</option>
+                    <option value="mkt">ฝ่ายการตลาด (MKT) - บันทึกข้อมูลและดูงบ, ตั้งค่าระบบไม่ได้, Export ไม่ได้</option>
+                    <option value="sales">ทีมขาย (Sales) - บันทึกและติดตามลูกค้า, ตั้งค่าระบบไม่ได้, Export ไม่ได้</option>
                   </select>
                 </div>
               )}

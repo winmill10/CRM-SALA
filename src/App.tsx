@@ -46,6 +46,16 @@ export default function App() {
 
   const availableYears = getAvailableYears();
 
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+  const canExport = isAdmin;
+
+  // Protect restricted tabs (users & settings) for non-admin roles (MKT & Sales)
+  React.useEffect(() => {
+    if (currentUser && !isAdmin && (currentTab === 'settings' || currentTab === 'users')) {
+      setCurrentTab('form');
+    }
+  }, [currentUser, isAdmin, currentTab]);
+
   // If user is not logged in, show the Login Screen
   if (!currentUser) {
     return <LoginScreen onLogin={login} syncStatus={syncStatus} />;
@@ -80,6 +90,7 @@ export default function App() {
             onDeleteCustomer={deleteCustomer}
             onViewImage={setPreviewImage}
             availableYears={availableYears}
+            canExport={canExport}
           />
         )}
 
@@ -99,6 +110,7 @@ export default function App() {
             onSaveCampaign={saveSalesCampaign}
             onDeleteCampaign={deleteSalesCampaign}
             availableYears={availableYears}
+            canExport={canExport}
           />
         )}
 
@@ -115,6 +127,7 @@ export default function App() {
             onSaveExpense={saveExpense}
             onDeleteExpense={deleteExpense}
             availableYears={availableYears}
+            canExport={canExport}
           />
         )}
 
@@ -122,10 +135,11 @@ export default function App() {
           <ExpenseReport
             appData={data}
             availableYears={availableYears}
+            canExport={canExport}
           />
         )}
 
-        {currentTab === 'users' && (
+        {currentTab === 'users' && isAdmin && (
           <UserManagementTab
             appData={data}
             currentUser={currentUser}
@@ -135,7 +149,7 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'settings' && (
+        {currentTab === 'settings' && isAdmin && (
           <SettingsTab
             appData={data}
             onAddCategory={addCategory}
