@@ -16,6 +16,8 @@ export interface Customer {
   phone: string;
   image?: string;
   followUpResult: string;
+  campaignId?: number; // ลิงก์กับแคมเปญเพจสาขา
+  campaignName?: string; // ชื่อแคมเปญเพจสาขาที่ลิงก์
 }
 
 export interface SalesProfile {
@@ -50,6 +52,8 @@ export interface SalesCampaign {
   budget: number;
   spend: number;
   inbox: number;
+  ps?: number; // จำนวนลูกค้า PS (Prospect / ผู้สนใจ / นัดหมาย) จากแคมเปญ
+  image?: string; // รูปภาพแคมเปญ ขนาด 600x600 pixel (Base64)
 }
 
 export type UserRole = 'superadmin' | 'admin' | 'mkt' | 'sales';

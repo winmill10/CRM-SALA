@@ -74,7 +74,9 @@ export const INITIAL_DATA: AppData = {
       ],
       phone: "081-234-5678",
       image: "",
-      followUpResult: "นัดหมายเข้าโชว์รูม ไฟแนนซ์ผ่านฉลุย ส่งมอบรถเรียบร้อย"
+      followUpResult: "นัดหมายเข้าโชว์รูม ไฟแนนซ์ผ่านฉลุย ส่งมอบรถเรียบร้อย",
+      campaignId: 1,
+      campaignName: "เพจสมชาย Isuzu - โปร MU-X ป้ายแดง"
     },
     {
       id: 2,
@@ -91,7 +93,9 @@ export const INITIAL_DATA: AppData = {
       ],
       phone: "089-876-5432",
       image: "",
-      followUpResult: "จองรถในงาน Roadshow รอผลเอกสารไฟแนนซ์เช็คเครดิต"
+      followUpResult: "จองรถในงาน Roadshow รอผลเอกสารไฟแนนซ์เช็คเครดิต",
+      campaignId: 2,
+      campaignName: "เพจวิภา ออฟโรด 4x4 สดผ่อน"
     },
     {
       id: 3,
@@ -125,7 +129,9 @@ export const INITIAL_DATA: AppData = {
       ],
       phone: "084-555-1234",
       image: "",
-      followUpResult: "ออกรถกระบะตอนเดียวไปต่อตู้ทึบ รับรถเรียบร้อย ประทับใจมาก"
+      followUpResult: "ออกรถกระบะตอนเดียวไปต่อตู้ทึบ รับรถเรียบร้อย ประทับใจมาก",
+      campaignId: 3,
+      campaignName: "เพจธีรเดช รถคอกเพลาลอยรับจ้าง"
     },
     {
       id: 5,
@@ -141,7 +147,9 @@ export const INITIAL_DATA: AppData = {
       ],
       phone: "090-999-1122",
       image: "",
-      followUpResult: "สอบถามตารางผ่อน 84 งวด นัดหมายเข้ามาดูรถจริงวันเสาร์นี้"
+      followUpResult: "สอบถามตารางผ่อน 84 งวด นัดหมายเข้ามาดูรถจริงวันเสาร์นี้",
+      campaignId: 4,
+      campaignName: "เพจกัญญารัตน์ Isuzu การันตีดอกเบี้ย"
     },
     {
       id: 6,
@@ -227,7 +235,9 @@ export const INITIAL_DATA: AppData = {
       category: "MU-X",
       budget: 8000,
       spend: 7800,
-      inbox: 34
+      inbox: 34,
+      ps: 9,
+      image: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&h=600&fit=crop"
     },
     {
       id: 2,
@@ -237,7 +247,9 @@ export const INITIAL_DATA: AppData = {
       category: "4x4",
       budget: 9500,
       spend: 9200,
-      inbox: 42
+      inbox: 42,
+      ps: 12,
+      image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&h=600&fit=crop"
     },
     {
       id: 3,
@@ -247,7 +259,9 @@ export const INITIAL_DATA: AppData = {
       category: "4x2",
       budget: 6000,
       spend: 6400,
-      inbox: 28
+      inbox: 28,
+      ps: 7,
+      image: ""
     },
     {
       id: 4,
@@ -257,7 +271,9 @@ export const INITIAL_DATA: AppData = {
       category: "MU-X",
       budget: 7000,
       spend: 6500,
-      inbox: 31
+      inbox: 31,
+      ps: 8,
+      image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&h=600&fit=crop"
     }
   ],
   users: [

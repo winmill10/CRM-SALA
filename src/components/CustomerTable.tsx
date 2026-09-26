@@ -14,7 +14,8 @@ import {
   Image as ImageIcon,
   X,
   Save,
-  FilterX
+  FilterX,
+  Megaphone
 } from 'lucide-react';
 
 interface CustomerTableProps {
@@ -55,6 +56,8 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   const [editStatus, setEditStatus] = useState('');
   const [editFollowUp, setEditFollowUp] = useState('');
   const [editImage, setEditImage] = useState('');
+  const [editCampaignId, setEditCampaignId] = useState<number | ''>('');
+  const [editCampaignName, setEditCampaignName] = useState<string>('');
 
   const toggleHistory = (id: number) => {
     setExpandedHistory((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -118,6 +121,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
       'เซลล์ผู้ดูแล': c.salesAgent,
       'ประเภทรถ': c.category,
       'รุ่นย่อย': c.subCategory,
+      'แคมเปญเพจสาขา': c.campaignName || '-',
       'สถานะปัจจุบัน': c.status,
       'ผลการติดตาม': c.followUpResult || '-',
     }));
@@ -139,6 +143,8 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
     setEditStatus(customer.status);
     setEditFollowUp(customer.followUpResult || '');
     setEditImage(customer.image || '');
+    setEditCampaignId(customer.campaignId || '');
+    setEditCampaignName(customer.campaignName || '');
   };
 
   const closeEditModal = () => {
@@ -176,10 +182,19 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
       status: editStatus,
       followUpResult: editFollowUp.trim(),
       image: editImage,
+      campaignId: editCampaignId ? Number(editCampaignId) : undefined,
+      campaignName: editCampaignName.trim() || undefined,
     });
 
     closeEditModal();
   };
+
+  // Campaigns matching the customer's edit contact month
+  const editMonthCampaigns = useMemo(() => {
+    const m = editContactDate ? editContactDate.substring(0, 7) : '';
+    if (!m) return [];
+    return (appData.salesCampaigns || []).filter((sc) => sc.month === m);
+  }, [appData.salesCampaigns, editContactDate]);
 
   const getCategoryColor = (cat: string) => {
     return appData.categoryColors[cat] || '#64748b';
@@ -330,6 +345,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                 <th className="py-2.5 px-3 w-28 border-r border-red-600">เบอร์โทร</th>
                 <th className="py-2.5 px-3 w-28 border-r border-red-600">เซลล์ดูแล</th>
                 <th className="py-2.5 px-3 w-36 border-r border-red-600">ประเภท / รุ่นย่อย</th>
+                <th className="py-2.5 px-3 w-40 border-r border-red-600">แคมเปญเพจสาขา</th>
                 <th className="py-2.5 px-3 w-56 border-r border-red-600">สถานะปัจจุบัน & ประวัติ</th>
                 <th className="py-2.5 px-3 border-r border-red-600">ผลการติดตาม / บันทึก</th>
                 <th className="py-2.5 px-2 text-center w-20">จัดการ</th>
@@ -338,7 +354,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
             <tbody className="divide-y divide-slate-200 bg-white">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-8 text-slate-400 font-medium">
+                  <td colSpan={10} className="text-center py-8 text-slate-400 font-medium">
                     ไม่พบข้อมูลลูกค้าที่ตรงตามเงื่อนไข
                   </td>
                 </tr>
@@ -409,6 +425,25 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                         <div className="text-[11px] text-slate-600 font-semibold mt-1">
                           {c.subCategory}
                         </div>
+                      </td>
+
+                      {/* Linked Campaign */}
+                      <td className="p-2.5 align-top border-r border-slate-100">
+                        {c.campaignName ? (
+                          <div className="bg-red-50 text-red-800 border border-red-200/80 rounded-lg p-1.5 text-[11px]">
+                            <div className="font-semibold flex items-center gap-1 text-red-700">
+                              <Megaphone className="w-3 h-3 shrink-0" />
+                              <span className="truncate max-w-[130px]" title={c.campaignName}>
+                                {c.campaignName}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                              เดือน {c.contactDate.substring(0, 7)}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">- ทั่วไป / ออร์แกนิก -</span>
+                        )}
                       </td>
 
                       {/* Status & Timeline */}
@@ -620,6 +655,50 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Linked Campaign Field */}
+              <div className="bg-red-50/50 p-3 rounded-xl border border-red-200">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Megaphone className="w-3.5 h-3.5 text-red-600" />
+                    <span>แคมเปญเพจสาขาที่ลิงก์</span>
+                  </label>
+                  <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.2 rounded font-mono font-bold">
+                    เดือน {editContactDate.substring(0, 7) || '-'}
+                  </span>
+                </div>
+                <select
+                  value={editCampaignId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setEditCampaignId('');
+                      setEditCampaignName('');
+                    } else {
+                      const sc = (appData.salesCampaigns || []).find((c) => c.id === Number(val));
+                      setEditCampaignId(Number(val));
+                      setEditCampaignName(sc?.campaignName || '');
+                    }
+                  }}
+                  className="w-full p-2.5 border rounded-xl bg-white focus:ring-1 focus:ring-red-500 text-xs"
+                >
+                  <option value="">-- ไม่ระบุแคมเปญ (ลูกค้าทั่วไป / หน้าร้าน / ออร์แกนิก) --</option>
+                  {editMonthCampaigns.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      [{sc.salesAgent}] {sc.campaignName} ({sc.category})
+                    </option>
+                  ))}
+                </select>
+                {editMonthCampaigns.length === 0 ? (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    ยังไม่มีแคมเปญในเดือน {editContactDate.substring(0, 7) || '-'}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    ดึงเฉพาะแคมเปญในเดือน {editContactDate.substring(0, 7)} ตามวันที่ทัก
+                  </p>
+                )}
               </div>
 
               <div>

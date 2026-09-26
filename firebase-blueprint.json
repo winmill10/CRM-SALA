@@ -29,9 +29,29 @@
         "status": { "type": "string", "description": "Status: PS, BK, RS, CC, ได้คุย" },
         "notes": { "type": "string", "description": "Follow-up notes" },
         "attachment": { "type": "string", "description": "Image attachment URL/data" },
-        "statusHistory": { "type": "array", "description": "Status update log" }
+        "statusHistory": { "type": "array", "description": "Status update log" },
+        "campaignId": { "type": "number", "description": "Linked branch campaign ID" },
+        "campaignName": { "type": "string", "description": "Linked branch campaign name" }
       },
       "required": ["id", "contactDate", "fbName", "salesAgent", "category", "subCategory", "status"]
+    },
+    "salesCampaigns": {
+      "title": "SalesCampaign",
+      "description": "Branch sales page campaign records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Unique ID" },
+        "month": { "type": "string", "description": "Campaign month YYYY-MM" },
+        "salesAgent": { "type": "string", "description": "Branch sales page owner" },
+        "campaignName": { "type": "string", "description": "Campaign title or ad post name" },
+        "category": { "type": "string", "description": "Car model category" },
+        "budget": { "type": "number", "description": "Allocated budget in Baht" },
+        "spend": { "type": "number", "description": "Actual spend in Baht" },
+        "inbox": { "type": "number", "description": "Inbox message count" },
+        "ps": { "type": "number", "description": "Number of PS prospects generated" },
+        "image": { "type": "string", "description": "Campaign post image 600x600 px (base64)" }
+      },
+      "required": ["id", "month", "salesAgent", "campaignName", "category", "budget", "spend", "inbox"]
     }
   },
   "firestore": {
@@ -42,6 +62,10 @@
     "/customers/{customerId}": {
       "schema": { "$ref": "#/entities/customers" },
       "description": "Customer inquiry and lead documents"
+    },
+    "/salesCampaigns/{campaignId}": {
+      "schema": { "$ref": "#/entities/salesCampaigns" },
+      "description": "Branch sales page campaign documents"
     }
   }
 }

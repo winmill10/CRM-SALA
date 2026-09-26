@@ -14,7 +14,14 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Megaphone,
+  Link2,
+  Unlink,
+  Info,
+  Maximize2,
+  Eye,
+  Check
 } from 'lucide-react';
 
 interface CustomerFormProps {
@@ -43,6 +50,11 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [image, setImage] = useState('');
   const [followUpResult, setFollowUpResult] = useState('');
   const [successToast, setSuccessToast] = useState(false);
+
+  // Linked Campaign State
+  const [campaignId, setCampaignId] = useState<number | ''>('');
+  const [campaignName, setCampaignName] = useState<string>('');
+  const [previewCampaignImage, setPreviewCampaignImage] = useState<string | null>(null);
 
   // Quick Add Sales Profile Modal
   const [isAddSalesModalOpen, setIsAddSalesModalOpen] = useState(false);
@@ -106,6 +118,58 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     }
   }, [category, appData.categories]);
 
+  // Contact Month (YYYY-MM) derived from contactDate
+  const contactMonth = useMemo(() => {
+    return contactDate ? contactDate.substring(0, 7) : '';
+  }, [contactDate]);
+
+  // Campaigns filtered strictly by the contact month
+  const monthCampaigns = useMemo(() => {
+    if (!contactMonth) return [];
+    return (appData.salesCampaigns || []).filter((sc) => sc.month === contactMonth);
+  }, [appData.salesCampaigns, contactMonth]);
+
+  // Group campaigns into those belonging to currently selected salesAgent and others
+  const { agentCampaigns, otherCampaigns } = useMemo(() => {
+    const curAgent = (salesAgent || '').trim();
+    const mine = monthCampaigns.filter((sc) => sc.salesAgent.trim() === curAgent);
+    const others = monthCampaigns.filter((sc) => sc.salesAgent.trim() !== curAgent);
+    return { agentCampaigns: mine, otherCampaigns: others };
+  }, [monthCampaigns, salesAgent]);
+
+  // Currently selected campaign object
+  const selectedCampaign = useMemo(() => {
+    if (!campaignId) return null;
+    return (appData.salesCampaigns || []).find((sc) => sc.id === Number(campaignId)) || null;
+  }, [appData.salesCampaigns, campaignId]);
+
+  // Auto-clear campaign if user changes contactDate to a month where the campaign is not found
+  useEffect(() => {
+    if (campaignId && selectedCampaign && selectedCampaign.month !== contactMonth) {
+      setCampaignId('');
+      setCampaignName('');
+    }
+  }, [contactMonth, campaignId, selectedCampaign]);
+
+  const handleSelectCampaign = (idStr: string) => {
+    if (!idStr) {
+      setCampaignId('');
+      setCampaignName('');
+      return;
+    }
+    const numId = Number(idStr);
+    const sc = (appData.salesCampaigns || []).find((c) => c.id === numId);
+    if (sc) {
+      setCampaignId(sc.id);
+      setCampaignName(sc.campaignName);
+
+      // Align category if present in appData
+      if (sc.category && appData.categories[sc.category]) {
+        setCategory(sc.category);
+      }
+    }
+  };
+
   const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -123,6 +187,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     setPhone('');
     setImage('');
     setFollowUpResult('');
+    setCampaignId('');
+    setCampaignName('');
     if (categories.length > 0) setCategory(categories[0]);
     if (currentUser?.salesNickname && availableSalesAgents.includes(currentUser.salesNickname)) {
       setSalesAgent(currentUser.salesNickname);
@@ -153,6 +219,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       phone: phone.trim(),
       image,
       followUpResult: followUpResult.trim(),
+      campaignId: campaignId ? Number(campaignId) : undefined,
+      campaignName: campaignName.trim() || undefined,
     });
 
     setSuccessToast(true);
@@ -369,9 +437,178 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
             </div>
           </div>
 
+          {/* Field 5: ลิงก์กับแคมเปญเพจสาขา (ประจำเดือนที่ทักเข้ามา) */}
+          <div className="md:col-span-3 bg-red-50/50 p-4 rounded-2xl border border-red-200/90 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Megaphone className="w-4 h-4 text-red-600" />
+                <span>5. ลิงก์กับแคมเปญเพจสาขา</span>
+                <span className="text-[11px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                  เดือน {contactMonth || 'ที่ระบุ'}
+                </span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500">
+                  มี {monthCampaigns.length} แคมเปญในเดือนนี้
+                </span>
+                {campaignId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCampaignId('');
+                      setCampaignName('');
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-lg font-medium transition cursor-pointer"
+                  >
+                    <Unlink className="w-3 h-3" />
+                    ยกเลิกลิงก์
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div>
+                <select
+                  value={campaignId}
+                  onChange={(e) => handleSelectCampaign(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-red-500 focus:outline-none text-xs bg-white font-medium cursor-pointer"
+                >
+                  <option value="">-- ไม่ได้มาจากแคมเปญเพจสาขา (ลูกค้าทั่วไป / หน้าร้าน / ออร์แกนิก) --</option>
+                  {agentCampaigns.length > 0 && (
+                    <optgroup label={`แคมเปญของเซลล์ ${salesAgent} (${agentCampaigns.length} รายการ)`}>
+                      {agentCampaigns.map((sc) => (
+                        <option key={sc.id} value={sc.id}>
+                          ⭐ {sc.campaignName} ({sc.category} | งบ ฿{sc.budget.toLocaleString()} | ใช้ ฿{sc.spend.toLocaleString()})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {otherCampaigns.length > 0 && (
+                    <optgroup label={`แคมเปญเพจอื่นๆ ในเดือน ${contactMonth} (${otherCampaigns.length} รายการ)`}>
+                      {otherCampaigns.map((sc) => (
+                        <option key={sc.id} value={sc.id}>
+                          [{sc.salesAgent}] {sc.campaignName} ({sc.category})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+
+                <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                  <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>
+                    ระบบจะกรองแคมเปญเฉพาะ <strong>เดือน {contactMonth || 'ที่ระบุ'}</strong> ที่ตรงกับวันที่ลูกค้าทักเข้ามาโดยอัตโนมัติ
+                  </span>
+                </p>
+
+                {monthCampaigns.length === 0 && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      ยังไม่มีการลงข้อมูลแคมเปญเพจสาขาในเดือน <strong>{contactMonth}</strong>{' '}
+                      (สามารถปล่อยว่างไว้เป็นลูกค้าทั่วไป หรือไปเพิ่มแคมเปญได้ที่แท็บ <strong>&ldquo;แคมเปญเพจสาขา&rdquo;</strong>)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Linked Campaign Live Preview Card */}
+              {selectedCampaign ? (
+                <div className="bg-white p-3 rounded-xl border border-red-200 shadow-2xs space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    {/* Thumbnail 600x600 px image */}
+                    {selectedCampaign.image ? (
+                      <div className="relative group shrink-0">
+                        <img
+                          src={selectedCampaign.image}
+                          alt={selectedCampaign.campaignName}
+                          onClick={() => setPreviewCampaignImage(selectedCampaign.image || '')}
+                          title="คลิกเพื่อดูรูปภาพขนาด 600x600 px เต็ม"
+                          className="w-14 h-14 rounded-lg object-cover border border-slate-200 shadow-2xs cursor-pointer group-hover:opacity-90 transition"
+                        />
+                        <div
+                          onClick={() => setPreviewCampaignImage(selectedCampaign.image || '')}
+                          className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer text-white"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                        <Megaphone className="w-5 h-5" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold shrink-0">
+                          แคมเปญเพจสาขา
+                        </span>
+                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono">
+                          {selectedCampaign.month}
+                        </span>
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-medium">
+                          {selectedCampaign.salesAgent}
+                        </span>
+                      </div>
+
+                      <h4 className="font-bold text-slate-900 text-xs mt-1 truncate" title={selectedCampaign.campaignName}>
+                        {selectedCampaign.campaignName}
+                      </h4>
+
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-600 font-mono">
+                        <span>งบ: ฿{Number(selectedCampaign.budget).toLocaleString()}</span>
+                        <span>•</span>
+                        <span>ใช้: ฿{Number(selectedCampaign.spend).toLocaleString()}</span>
+                        <span>•</span>
+                        <span className="text-sky-700 font-bold">Inbox: {selectedCampaign.inbox}</span>
+                        {selectedCampaign.ps !== undefined && (
+                          <>
+                            <span>•</span>
+                            <span className="text-indigo-700 font-bold">PS: {selectedCampaign.ps}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Smart sync buttons */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-[11px]">
+                    {selectedCampaign.category && selectedCampaign.category !== category && (
+                      <button
+                        type="button"
+                        onClick={() => setCategory(selectedCampaign.category)}
+                        className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md font-medium transition cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" />
+                        ปรับประเภทรถเป็น &ldquo;{selectedCampaign.category}&rdquo; ให้ตรงกับแคมเปญ
+                      </button>
+                    )}
+                    {selectedCampaign.salesAgent && selectedCampaign.salesAgent !== salesAgent && (
+                      <button
+                        type="button"
+                        onClick={() => setSalesAgent(selectedCampaign.salesAgent)}
+                        className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md font-medium transition cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" />
+                        ปรับเซลล์ผู้ดูแลเป็น &ldquo;{selectedCampaign.salesAgent}&rdquo;
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white/80 p-3 rounded-xl border border-dashed border-slate-200 text-slate-400 text-[11px] flex items-center justify-center h-full min-h-[58px]">
+                  <span>เลือกแคมเปญเพื่อดูรายละเอียดและเชื่อมโยง หรือปล่อยว่างหากเป็นลูกค้าทั่วไป</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              5. ประเภทที่สนใจ <span className="text-red-500">*</span>
+              6. ประเภทที่สนใจ <span className="text-red-500">*</span>
             </label>
             <select
               required
@@ -389,7 +626,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              6. รุ่นย่อย <span className="text-red-500">*</span>
+              7. รุ่นย่อย <span className="text-red-500">*</span>
             </label>
             <select
               required
@@ -411,7 +648,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              7. สถานะการติดตาม <span className="text-red-500">*</span>
+              8. สถานะการติดตาม <span className="text-red-500">*</span>
             </label>
             <select
               required
@@ -429,7 +666,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              8. เบอร์โทร / ช่องทางติดต่อลูกค้า
+              9. เบอร์โทร / ช่องทางติดต่อลูกค้า
             </label>
             <input
               type="text"
@@ -442,7 +679,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              9. รูปภาพประกอบ / สลิปโอน / แชท
+              10. รูปภาพประกอบ / สลิปโอน / แชท
             </label>
             <input
               type="file"
@@ -468,7 +705,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <div className="md:col-span-3">
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              10. ผลการติดตาม / บันทึกการพูดคุย
+              11. ผลการติดตาม / บันทึกการพูดคุย
             </label>
             <textarea
               rows={3}
@@ -606,6 +843,53 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal for 600x600 Campaign Image */}
+      {previewCampaignImage && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setPreviewCampaignImage(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3.5 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-red-600" />
+                <span className="font-bold text-xs text-slate-800">
+                  รูปภาพแคมเปญเพจสาขา (600 × 600 px)
+                </span>
+              </div>
+              <button
+                onClick={() => setPreviewCampaignImage(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-900 flex items-center justify-center">
+              <img
+                src={previewCampaignImage}
+                alt="Campaign Full Preview"
+                className="w-[400px] h-[400px] max-w-full max-h-[70vh] object-cover rounded-xl shadow-lg border border-white/10"
+              />
+            </div>
+            {selectedCampaign && (
+              <div className="p-3.5 bg-white text-xs border-t border-slate-100">
+                <div className="font-bold text-slate-800">{selectedCampaign.campaignName}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                  <span>เดือน {selectedCampaign.month}</span>
+                  <span>•</span>
+                  <span>เซลล์: {selectedCampaign.salesAgent}</span>
+                  <span>•</span>
+                  <span>รุ่น: {selectedCampaign.category}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

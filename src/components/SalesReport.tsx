@@ -303,7 +303,9 @@ export const SalesReport: React.FC<SalesReportProps> = ({
               const campBudget = sCampaigns.reduce((sum, sc) => sum + (Number(sc.budget) || 0), 0);
               const campSpend = sCampaigns.reduce((sum, sc) => sum + (Number(sc.spend) || 0), 0);
               const campInbox = sCampaigns.reduce((sum, sc) => sum + (Number(sc.inbox) || 0), 0);
+              const campPS = sCampaigns.reduce((sum, sc) => sum + (Number(sc.ps) || 0), 0);
               const campCPI = campInbox > 0 ? campSpend / campInbox : 0;
+              const campCPPS = campPS > 0 ? campSpend / campPS : 0;
 
               return (
                 <div
@@ -460,10 +462,10 @@ export const SalesReport: React.FC<SalesReportProps> = ({
                               <span>แคมเปญเพจสาขา ({sCampaigns.length} แคมเปญ):</span>
                             </span>
                             <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-red-200 text-red-700">
-                              เฉลี่ย ฿{formatNum(campCPI)}/Inbox
+                              {campPS > 0 ? `฿${formatNum(campCPPS)}/PS` : `฿${formatNum(campCPI)}/Inbox`}
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] mt-1">
+                          <div className="grid grid-cols-4 gap-1 text-center font-mono text-[10px] mt-1">
                             <div className="bg-white/80 p-1 rounded border border-red-100">
                               <span className="text-slate-500 block text-[9px] font-sans">งบรวม</span>
                               <span className="font-bold text-slate-800">฿{formatNum(campBudget)}</span>
@@ -476,7 +478,30 @@ export const SalesReport: React.FC<SalesReportProps> = ({
                               <span className="text-slate-500 block text-[9px] font-sans">Inbox รวม</span>
                               <span className="font-bold text-sky-800">{campInbox}</span>
                             </div>
+                            <div className="bg-white/80 p-1 rounded border border-red-100">
+                              <span className="text-indigo-700 block text-[9px] font-sans font-bold">PS รวม</span>
+                              <span className="font-bold text-indigo-900">{campPS}</span>
+                            </div>
                           </div>
+                          {sCampaigns.some((sc) => sc.image) && (
+                            <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-red-100">
+                              <span className="text-[9px] text-slate-500 font-sans">รูปแคมเปญ:</span>
+                              <div className="flex items-center -space-x-1.5 overflow-hidden">
+                                {sCampaigns
+                                  .filter((sc) => sc.image)
+                                  .slice(0, 4)
+                                  .map((sc) => (
+                                    <img
+                                      key={sc.id}
+                                      src={sc.image}
+                                      alt={sc.campaignName}
+                                      title={`${sc.campaignName} (600x600 px)`}
+                                      className="w-5 h-5 rounded-full object-cover border border-white shadow-xs"
+                                    />
+                                  ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -349,6 +349,8 @@ export function useAppData() {
       id: Date.now(),
       entryDateTime: nowStr,
       statusHistory: [{ status: customerData.status, date: nowStr }],
+      campaignId: customerData.campaignId || undefined,
+      campaignName: customerData.campaignName || '',
     };
 
     setData((prev) => ({
@@ -357,7 +359,11 @@ export function useAppData() {
     }));
 
     try {
-      await setDoc(doc(db, 'customers', String(newCustomer.id)), newCustomer);
+      // Clean undefined fields before writing to Firestore
+      const cleanData = Object.fromEntries(
+        Object.entries(newCustomer).filter(([_, v]) => v !== undefined)
+      );
+      await setDoc(doc(db, 'customers', String(newCustomer.id)), cleanData);
     } catch (e) {
       console.warn('Firestore addCustomer error:', e);
     }
@@ -383,7 +389,10 @@ export function useAppData() {
     });
 
     try {
-      await setDoc(doc(db, 'customers', String(updated.id)), finalCustomer);
+      const cleanData = Object.fromEntries(
+        Object.entries(finalCustomer).filter(([_, v]) => v !== undefined)
+      );
+      await setDoc(doc(db, 'customers', String(updated.id)), cleanData);
     } catch (e) {
       console.warn('Firestore updateCustomer error:', e);
     }
@@ -518,7 +527,15 @@ export function useAppData() {
   // Sales Campaigns Actions
   const saveSalesCampaign = async (campaign: Omit<SalesCampaign, 'id'> & { id?: number }) => {
     const id = campaign.id || Date.now();
-    const finalCampaign: SalesCampaign = { ...campaign, id };
+    const finalCampaign: SalesCampaign = {
+      ...campaign,
+      id,
+      budget: Number(campaign.budget) || 0,
+      spend: Number(campaign.spend) || 0,
+      inbox: Number(campaign.inbox) || 0,
+      ps: Number(campaign.ps) || 0,
+      image: campaign.image || '',
+    };
 
     setData((prev) => {
       let updated = [...(prev.salesCampaigns || [])];
