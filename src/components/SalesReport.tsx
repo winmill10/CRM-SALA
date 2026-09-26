@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { AppData, SalesProfile } from '../types';
+import { formatNum } from '../hooks/useAppData';
 import {
   Contact,
   UserPlus,
@@ -15,7 +16,8 @@ import {
   Check,
   X,
   FileText,
-  Car
+  Car,
+  Megaphone
 } from 'lucide-react';
 
 interface SalesReportProps {
@@ -291,6 +293,18 @@ export const SalesReport: React.FC<SalesReportProps> = ({
 
               const modelRows = Object.values(catSubGroup);
 
+              // Page campaigns for this sales agent
+              const sCampaigns = (appData.salesCampaigns || []).filter((sc) => {
+                if (sc.salesAgent !== sp.nickname) return false;
+                if (selectedYear && !sc.month.startsWith(selectedYear)) return false;
+                if (selectedMonth && sc.month !== `${selectedYear}-${selectedMonth}`) return false;
+                return true;
+              });
+              const campBudget = sCampaigns.reduce((sum, sc) => sum + (Number(sc.budget) || 0), 0);
+              const campSpend = sCampaigns.reduce((sum, sc) => sum + (Number(sc.spend) || 0), 0);
+              const campInbox = sCampaigns.reduce((sum, sc) => sum + (Number(sc.inbox) || 0), 0);
+              const campCPI = campInbox > 0 ? campSpend / campInbox : 0;
+
               return (
                 <div
                   key={sp.id}
@@ -436,6 +450,35 @@ export const SalesReport: React.FC<SalesReportProps> = ({
                           </table>
                         </div>
                       </div>
+
+                      {/* Branch Page Campaign Summary for this Agent */}
+                      {sCampaigns.length > 0 && (
+                        <div className="mt-3 bg-red-50/60 border border-red-200/80 rounded-xl p-2.5 text-[11px]">
+                          <div className="flex items-center justify-between font-bold text-red-800 mb-1">
+                            <span className="flex items-center gap-1">
+                              <Megaphone className="w-3 h-3 text-red-600" />
+                              <span>แคมเปญเพจสาขา ({sCampaigns.length} แคมเปญ):</span>
+                            </span>
+                            <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-red-200 text-red-700">
+                              เฉลี่ย ฿{formatNum(campCPI)}/Inbox
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1 text-center font-mono text-[10px] mt-1">
+                            <div className="bg-white/80 p-1 rounded border border-red-100">
+                              <span className="text-slate-500 block text-[9px] font-sans">งบรวม</span>
+                              <span className="font-bold text-slate-800">฿{formatNum(campBudget)}</span>
+                            </div>
+                            <div className="bg-white/80 p-1 rounded border border-red-100">
+                              <span className="text-slate-500 block text-[9px] font-sans">จ่ายจริง</span>
+                              <span className="font-bold text-slate-800">฿{formatNum(campSpend)}</span>
+                            </div>
+                            <div className="bg-white/80 p-1 rounded border border-red-100">
+                              <span className="text-slate-500 block text-[9px] font-sans">Inbox รวม</span>
+                              <span className="font-bold text-sky-800">{campInbox}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {sp.note && (

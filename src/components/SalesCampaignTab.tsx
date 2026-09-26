@@ -7,6 +7,7 @@ import {
   Plus,
   Edit2,
   Trash2,
+  Copy,
   Wallet,
   CreditCard,
   MessageSquare,
@@ -14,7 +15,17 @@ import {
   X,
   Save,
   Filter,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Calendar,
+  Users,
+  Layers,
+  Search,
+  RotateCcw,
+  BarChart3,
+  Award,
+  ArrowUpDown,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SalesCampaignTabProps {
@@ -32,32 +43,81 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
   availableYears,
   canExport = true,
 }) => {
-  const [filterSales, setFilterSales] = useState('');
-  const [filterYear, setFilterYear] = useState('');
+  const currentYM = getCurrentYearMonth();
+  const [currentYearStr, currentMonthNum] = currentYM.split('-');
+
+  // Filter States
+  const [filterYear, setFilterYear] = useState<string>(availableYears[0] || currentYearStr);
+  const [filterMonth, setFilterMonth] = useState<string>(''); // '' = all months, or '01'-'12'
+  const [filterSales, setFilterSales] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Active view mode for summary breakdown
+  const [viewMode, setViewMode] = useState<'table' | 'sales_summary' | 'category_summary' | 'monthly_summary'>('table');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [month, setMonth] = useState(getCurrentYearMonth());
-  const [salesAgent, setSalesAgent] = useState('');
-  const [campaignName, setCampaignName] = useState('');
-  const [category, setCategory] = useState('');
-  const [budget, setBudget] = useState<string | number>('');
-  const [spend, setSpend] = useState<string | number>('');
-  const [inbox, setInbox] = useState<string | number>('');
+  const [modalMonth, setModalMonth] = useState(currentYM);
+  const [modalSalesAgent, setModalSalesAgent] = useState('');
+  const [modalCampaignName, setModalCampaignName] = useState('');
+  const [modalCategory, setModalCategory] = useState('');
+  const [modalBudget, setModalBudget] = useState<string | number>('');
+  const [modalSpend, setModalSpend] = useState<string | number>('');
+  const [modalInbox, setModalInbox] = useState<string | number>('');
+
+  const months = [
+    { value: '', label: 'ทุกเดือน' },
+    { value: '01', label: 'ม.ค. (01)', fullName: 'มกราคม' },
+    { value: '02', label: 'ก.พ. (02)', fullName: 'กุมภาพันธ์' },
+    { value: '03', label: 'มี.ค. (03)', fullName: 'มีนาคม' },
+    { value: '04', label: 'เม.ย. (04)', fullName: 'เมษายน' },
+    { value: '05', label: 'พ.ค. (05)', fullName: 'พฤษภาคม' },
+    { value: '06', label: 'มิ.ย. (06)', fullName: 'มิถุนายน' },
+    { value: '07', label: 'ก.ค. (07)', fullName: 'กรกฎาคม' },
+    { value: '08', label: 'ส.ค. (08)', fullName: 'สิงหาคม' },
+    { value: '09', label: 'ก.ย. (09)', fullName: 'กันยายน' },
+    { value: '10', label: 'ต.ค. (10)', fullName: 'ตุลาคม' },
+    { value: '11', label: 'พ.ย. (11)', fullName: 'พฤศจิกายน' },
+    { value: '12', label: 'ธ.ค. (12)', fullName: 'ธันวาคม' },
+  ];
 
   const categories = Object.keys(appData.categories);
 
+  // Filtered campaigns
   const filteredCampaigns = useMemo(() => {
     return (appData.salesCampaigns || []).filter((sc) => {
-      if (filterSales && sc.salesAgent !== filterSales) return false;
+      // Filter Year
       if (filterYear && !sc.month.startsWith(filterYear)) return false;
+
+      // Filter Month ('01'-'12')
+      if (filterMonth) {
+        const scMonth = sc.month.split('-')[1];
+        if (scMonth !== filterMonth) return false;
+      }
+
+      // Filter Sales Agent
+      if (filterSales && sc.salesAgent !== filterSales) return false;
+
+      // Filter Category
+      if (filterCategory && sc.category !== filterCategory) return false;
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        const matchName = sc.campaignName.toLowerCase().includes(query);
+        const matchSales = sc.salesAgent.toLowerCase().includes(query);
+        const matchCat = sc.category.toLowerCase().includes(query);
+        if (!matchName && !matchSales && !matchCat) return false;
+      }
+
       return true;
     });
-  }, [appData.salesCampaigns, filterSales, filterYear]);
+  }, [appData.salesCampaigns, filterYear, filterMonth, filterSales, filterCategory, searchQuery]);
 
-  // Aggregate KPIs
-  const { totalBudget, totalSpend, totalInbox, avgCPI } = useMemo(() => {
+  // High-level KPI aggregations
+  const { totalBudget, totalSpend, totalDiff, totalInbox, avgCPI, budgetUsageRate } = useMemo(() => {
     let b = 0;
     let s = 0;
     let i = 0;
@@ -67,35 +127,210 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       i += Number(sc.inbox) || 0;
     });
     const cpi = i > 0 ? s / i : 0;
+    const diff = b - s;
+    const usage = b > 0 ? (s / b) * 100 : 0;
+
     return {
       totalBudget: b,
       totalSpend: s,
+      totalDiff: diff,
       totalInbox: i,
       avgCPI: cpi,
+      budgetUsageRate: usage,
     };
   }, [filteredCampaigns]);
 
+  // Breakdown Summary by Sales Agent
+  const salesSummary = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        salesAgent: string;
+        count: number;
+        budget: number;
+        spend: number;
+        inbox: number;
+      }
+    >();
+
+    // Initialize all sales agents in system
+    appData.salesAgents.forEach((agent) => {
+      map.set(agent, {
+        salesAgent: agent,
+        count: 0,
+        budget: 0,
+        spend: 0,
+        inbox: 0,
+      });
+    });
+
+    // Populate data from filtered campaigns
+    filteredCampaigns.forEach((sc) => {
+      const existing = map.get(sc.salesAgent) || {
+        salesAgent: sc.salesAgent,
+        count: 0,
+        budget: 0,
+        spend: 0,
+        inbox: 0,
+      };
+      existing.count += 1;
+      existing.budget += Number(sc.budget) || 0;
+      existing.spend += Number(sc.spend) || 0;
+      existing.inbox += Number(sc.inbox) || 0;
+      map.set(sc.salesAgent, existing);
+    });
+
+    return Array.from(map.values())
+      .filter((item) => item.count > 0 || !filterSales)
+      .map((item) => {
+        const diff = item.budget - item.spend;
+        const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
+        const usageRate = item.budget > 0 ? (item.spend / item.budget) * 100 : 0;
+        const inboxShare = totalInbox > 0 ? (item.inbox / totalInbox) * 100 : 0;
+        return {
+          ...item,
+          diff,
+          cpi,
+          usageRate,
+          inboxShare,
+        };
+      })
+      .sort((a, b) => b.inbox - a.inbox);
+  }, [filteredCampaigns, appData.salesAgents, filterSales, totalInbox]);
+
+  // Breakdown Summary by Category
+  const categorySummary = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        category: string;
+        count: number;
+        budget: number;
+        spend: number;
+        inbox: number;
+      }
+    >();
+
+    categories.forEach((cat) => {
+      map.set(cat, {
+        category: cat,
+        count: 0,
+        budget: 0,
+        spend: 0,
+        inbox: 0,
+      });
+    });
+
+    filteredCampaigns.forEach((sc) => {
+      const existing = map.get(sc.category) || {
+        category: sc.category,
+        count: 0,
+        budget: 0,
+        spend: 0,
+        inbox: 0,
+      };
+      existing.count += 1;
+      existing.budget += Number(sc.budget) || 0;
+      existing.spend += Number(sc.spend) || 0;
+      existing.inbox += Number(sc.inbox) || 0;
+      map.set(sc.category, existing);
+    });
+
+    return Array.from(map.values())
+      .filter((item) => item.count > 0)
+      .map((item) => {
+        const diff = item.budget - item.spend;
+        const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
+        return {
+          ...item,
+          diff,
+          cpi,
+        };
+      })
+      .sort((a, b) => b.spend - a.spend);
+  }, [filteredCampaigns, categories]);
+
+  // Breakdown Summary by Month
+  const monthlySummary = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        month: string;
+        count: number;
+        budget: number;
+        spend: number;
+        inbox: number;
+      }
+    >();
+
+    filteredCampaigns.forEach((sc) => {
+      const existing = map.get(sc.month) || {
+        month: sc.month,
+        count: 0,
+        budget: 0,
+        spend: 0,
+        inbox: 0,
+      };
+      existing.count += 1;
+      existing.budget += Number(sc.budget) || 0;
+      existing.spend += Number(sc.spend) || 0;
+      existing.inbox += Number(sc.inbox) || 0;
+      map.set(sc.month, existing);
+    });
+
+    return Array.from(map.values())
+      .map((item) => {
+        const diff = item.budget - item.spend;
+        const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
+        return {
+          ...item,
+          diff,
+          cpi,
+        };
+      })
+      .sort((a, b) => b.month.localeCompare(a.month));
+  }, [filteredCampaigns]);
+
+  // Modal Handlers
   const openAddModal = () => {
     setEditId(null);
-    setMonth(getCurrentYearMonth());
-    setSalesAgent(appData.salesAgents[0] || '');
-    setCampaignName('');
-    setCategory(categories[0] || '');
-    setBudget('');
-    setSpend('');
-    setInbox('');
+    const targetMonth =
+      filterYear && filterMonth
+        ? `${filterYear}-${filterMonth}`
+        : filterYear
+        ? `${filterYear}-${currentMonthNum}`
+        : currentYM;
+    setModalMonth(targetMonth);
+    setModalSalesAgent(filterSales || appData.salesAgents[0] || '');
+    setModalCampaignName('');
+    setModalCategory(filterCategory || categories[0] || 'MU-X');
+    setModalBudget('');
+    setModalSpend('');
+    setModalInbox('');
     setIsModalOpen(true);
   };
 
   const openEditModal = (sc: SalesCampaign) => {
     setEditId(sc.id);
-    setMonth(sc.month);
-    setSalesAgent(sc.salesAgent);
-    setCampaignName(sc.campaignName);
-    setCategory(sc.category);
-    setBudget(sc.budget);
-    setSpend(sc.spend);
-    setInbox(sc.inbox);
+    setModalMonth(sc.month);
+    setModalSalesAgent(sc.salesAgent);
+    setModalCampaignName(sc.campaignName);
+    setModalCategory(sc.category);
+    setModalBudget(sc.budget);
+    setModalSpend(sc.spend);
+    setModalInbox(sc.inbox);
+    setIsModalOpen(true);
+  };
+
+  const handleDuplicateCampaign = (sc: SalesCampaign) => {
+    setEditId(null);
+    setModalMonth(currentYM);
+    setModalSalesAgent(sc.salesAgent);
+    setModalCampaignName(`${sc.campaignName} (คัดลอก)`);
+    setModalCategory(sc.category);
+    setModalBudget(sc.budget);
+    setModalSpend(sc.spend);
+    setModalInbox(sc.inbox);
     setIsModalOpen(true);
   };
 
@@ -105,79 +340,177 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!salesAgent || !campaignName.trim()) return;
+    if (!modalSalesAgent || !modalCampaignName.trim()) return;
 
     onSaveCampaign({
       id: editId || undefined,
-      month,
-      salesAgent,
-      campaignName: campaignName.trim(),
-      category,
-      budget: parseFloat(String(budget)) || 0,
-      spend: parseFloat(String(spend)) || 0,
-      inbox: parseInt(String(inbox), 10) || 0,
+      month: modalMonth,
+      salesAgent: modalSalesAgent,
+      campaignName: modalCampaignName.trim(),
+      category: modalCategory || categories[0] || 'MU-X',
+      budget: parseFloat(String(modalBudget)) || 0,
+      spend: parseFloat(String(modalSpend)) || 0,
+      inbox: parseInt(String(modalInbox), 10) || 0,
     });
 
     closeModal();
   };
 
+  // Reset Filters
+  const handleResetFilters = () => {
+    setFilterYear(availableYears[0] || currentYearStr);
+    setFilterMonth('');
+    setFilterSales('');
+    setFilterCategory('');
+    setSearchQuery('');
+  };
+
+  // Export Excel with Details and Summaries
   const handleExportExcel = () => {
     if (filteredCampaigns.length === 0) {
-      alert('ไม่มีข้อมูลแคมเปญเพจเซลล์สำหรับ Export Excel');
+      alert('ไม่มีข้อมูลแคมเปญเพจสาขาสำหรับ Export Excel');
       return;
     }
 
-    const rows = filteredCampaigns.map((sc, idx) => {
+    const workbook = XLSX.utils.book_new();
+
+    // 1. Sheet รายการแคมเปญทั้งหมด
+    const detailRows = filteredCampaigns.map((sc, idx) => {
       const b = Number(sc.budget) || 0;
       const s = Number(sc.spend) || 0;
+      const diff = b - s;
       const inb = Number(sc.inbox) || 0;
       const cpi = inb > 0 ? s / inb : 0;
+      const statusText = s > b ? 'เกินงบประมาณ' : diff === 0 ? 'ใช้พอดิบพอดี' : 'งบคงเหลือ';
       return {
         'ลำดับ': idx + 1,
         'เดือน': sc.month,
-        'เซลล์': sc.salesAgent,
-        'ชื่อแคมเปญ': sc.campaignName,
-        'ประเภท': sc.category,
+        'เซลล์เจ้าของเพจ': sc.salesAgent,
+        'ชื่อแคมเปญเพจสาขา': sc.campaignName,
+        'ประเภท/รุ่นรถ': sc.category,
         'งบประมาณ (บาท)': b,
-        'ยอดใช้จริง (บาท)': s,
-        'ผลต่าง (บาท)': b - s,
+        'ยอดใช้จ่ายจริง (บาท)': s,
+        'ส่วนต่างคงเหลือ (บาท)': diff,
+        'สถานะการใช้งบ': statusText,
         'Inbox (ข้อความ)': inb,
         'ต้นทุนต่อ Inbox (บาท)': Number(cpi.toFixed(2)),
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet['!cols'] = [
-      { wch: 8 },  // ลำดับ
-      { wch: 12 }, // เดือน
-      { wch: 16 }, // เซลล์
-      { wch: 30 }, // ชื่อแคมเปญ
-      { wch: 18 }, // ประเภท
-      { wch: 16 }, // งบ
-      { wch: 16 }, // จ่ายจริง
-      { wch: 16 }, // ผลต่าง
-      { wch: 16 }, // Inbox
-      { wch: 20 }, // CPI
-    ];
+    // Summary row for details
+    detailRows.push({
+      'ลำดับ': 'รวมทั้งหมด' as any,
+      'เดือน': `${filteredCampaigns.length} รายการ`,
+      'เซลล์เจ้าของเพจ': '-',
+      'ชื่อแคมเปญเพจสาขา': 'สรุปภาพรวมแคมเปญเพจสาขา',
+      'ประเภท/รุ่นรถ': '-',
+      'งบประมาณ (บาท)': totalBudget,
+      'ยอดใช้จ่ายจริง (บาท)': totalSpend,
+      'ส่วนต่างคงเหลือ (บาท)': totalDiff,
+      'สถานะการใช้งบ': totalSpend > totalBudget ? 'เกินงบรวม' : 'งบคงเหลือรวม',
+      'Inbox (ข้อความ)': totalInbox,
+      'ต้นทุนต่อ Inbox (บาท)': Number(avgCPI.toFixed(2)),
+    });
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales_Campaigns');
-    XLSX.writeFile(workbook, `Sales_Campaigns_${filterSales || 'All'}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const worksheetDetails = XLSX.utils.json_to_sheet(detailRows);
+    worksheetDetails['!cols'] = [
+      { wch: 8 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 34 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 20 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, worksheetDetails, 'รายละเอียดแคมเปญ');
+
+    // 2. Sheet สรุปแยกตามเซลล์
+    const salesSummaryRows = salesSummary.map((item, idx) => ({
+      'ลำดับ': idx + 1,
+      'เซลล์เจ้าของเพจ': item.salesAgent,
+      'จำนวนแคมเปญ': item.count,
+      'งบประมาณรวม (บาท)': item.budget,
+      'ยอดจ่ายจริงรวม (บาท)': item.spend,
+      'ส่วนต่าง (บาท)': item.diff,
+      'Inbox รวม (ข้อความ)': item.inbox,
+      'ต้นทุนเฉลี่ย/Inbox (บาท)': Number(item.cpi.toFixed(2)),
+      'อัตราการใช้งบ (%)': Number(item.usageRate.toFixed(1)),
+      'สัดส่วน Inbox (%)': Number(item.inboxShare.toFixed(1)),
+    }));
+    const worksheetSales = XLSX.utils.json_to_sheet(salesSummaryRows);
+    worksheetSales['!cols'] = [
+      { wch: 8 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, worksheetSales, 'สรุปแยกตามเซลล์');
+
+    // 3. Sheet สรุปแยกตามประเภทรถ
+    const catSummaryRows = categorySummary.map((item, idx) => ({
+      'ลำดับ': idx + 1,
+      'ประเภท/รุ่นรถ': item.category,
+      'จำนวนแคมเปญ': item.count,
+      'งบประมาณรวม (บาท)': item.budget,
+      'ยอดจ่ายจริงรวม (บาท)': item.spend,
+      'ส่วนต่าง (บาท)': item.diff,
+      'Inbox รวม (ข้อความ)': item.inbox,
+      'ต้นทุนเฉลี่ย/Inbox (บาท)': Number(item.cpi.toFixed(2)),
+    }));
+    const worksheetCat = XLSX.utils.json_to_sheet(catSummaryRows);
+    worksheetCat['!cols'] = [
+      { wch: 8 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 22 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, worksheetCat, 'สรุปแยกตามรุ่นรถ');
+
+    const fileSuffix = filterMonth ? `${filterYear}-${filterMonth}` : filterYear || 'All';
+    XLSX.writeFile(workbook, `Sales_Branch_Campaigns_${fileSuffix}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
+
+  // Modal live calculations
+  const modalBudgetValue = parseFloat(String(modalBudget)) || 0;
+  const modalSpendValue = parseFloat(String(modalSpend)) || 0;
+  const modalInboxValue = parseInt(String(modalInbox), 10) || 0;
+  const modalDiff = modalBudgetValue - modalSpendValue;
+  const modalCPI = modalInboxValue > 0 ? modalSpendValue / modalInboxValue : 0;
+  const modalUsageRate = modalBudgetValue > 0 ? (modalSpendValue / modalBudgetValue) * 100 : 0;
 
   return (
     <div className="space-y-6">
+      {/* Top Banner Card */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 md:p-8">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
           <div>
-            <h2 className="text-xl font-bold text-red-700 flex items-center">
-              <Megaphone className="w-5 h-5 mr-2" />
-              บันทึกและสรุปข้อมูลแคมเปญเพจสาขา
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              กรอกข้อมูล: ชื่อแคมเปญ, ประเภท, งบ, จำนวนเงินที่จ่าย, inbox และสรุปสถิติแยกตามสาขา/เซลล์
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-red-100 text-red-700 rounded-xl">
+                <Megaphone className="w-5 h-5 text-red-700" />
+              </span>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  บันทึกและสรุปข้อมูลแคมเปญเพจสาขา
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  บันทึกแคมเปญโฆษณาเพจเซลล์ คำนวณงบประมาณ ค่าใช้จ่ายจริง ยอด Inbox และต้นทุนต่อ Inbox พร้อมฟิลเตอร์เดือน/ปี
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
@@ -185,8 +518,8 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
-                title="ดาวน์โหลดข้อมูลแคมเปญเพจสาขาเป็น Excel"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+                title="ดาวน์โหลดข้อมูลแคมเปญเพจสาขาและสรุปยอดเป็น Excel"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Export Excel ({filteredCampaigns.length})</span>
@@ -196,7 +529,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
             <button
               type="button"
               onClick={openAddModal}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer flex-1 sm:flex-none"
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มแคมเปญเพจสาขา</span>
@@ -204,172 +537,837 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-          <div className="flex items-center gap-2">
-            <label className="font-semibold text-slate-700 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
-              เลือกเซลล์:
-            </label>
-            <select
-              value={filterSales}
-              onChange={(e) => setFilterSales(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold text-red-700"
-            >
-              <option value="">ทุกเซลล์</option>
-              {appData.salesAgents.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+        {/* Filter Section */}
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6 space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+              <Filter className="w-4 h-4 text-red-600" />
+              <span>ตัวกรองข้อมูล (Filter Data)</span>
+              {(filterMonth || filterSales || filterCategory || searchQuery || filterYear !== currentYearStr) && (
+                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                  กรองอยู่
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs text-slate-500 hover:text-red-700 flex items-center gap-1 transition px-2 py-1 rounded-lg hover:bg-slate-200/60"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>ล้างตัวกรองทั้งหมด</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="font-semibold text-slate-700">เลือกปี:</label>
-            <select
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold text-red-700"
-            >
-              <option value="">ทุกปี</option>
-              {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  ปี {y}
-                </option>
-              ))}
-            </select>
+          {/* Filter Rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+            {/* Year Selector */}
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                เลือกปี:
+              </label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-semibold text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">ทุกปี (All Years)</option>
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    ปี {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month Selector - Dropdown */}
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                เลือกเดือน (Filter Month):
+              </label>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.fullName ? `${m.fullName} (${m.value})` : m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sales Agent Filter */}
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-slate-400" />
+                เซลล์เจ้าของเพจ:
+              </label>
+              <select
+                value={filterSales}
+                onChange={(e) => setFilterSales(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">ทุกเซลล์ (All Agents)</option>
+                {appData.salesAgents.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Category Filter */}
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-slate-400" />
+                หมวดหมู่/รุ่นรถ:
+              </label>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">ทุกประเภท (All Categories)</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Query */}
+            <div className="sm:col-span-2 md:col-span-4 lg:col-span-1">
+              <label className="block font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                ค้นหาแคมเปญ:
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="พิมพ์ชื่อแคมเปญ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 pr-7 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Month Filter Bar (12 Months Pills) */}
+          <div className="pt-2 border-t border-slate-200/80">
+            <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none text-[11px]">
+              <span className="font-semibold text-slate-500 shrink-0 mr-1 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> ทางลัดเดือน:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFilterMonth('')}
+                className={`px-2.5 py-1 rounded-lg font-semibold shrink-0 transition ${
+                  filterMonth === ''
+                    ? 'bg-red-700 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                ทุกเดือน
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterYear(currentYearStr);
+                  setFilterMonth(currentMonthNum);
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold shrink-0 transition flex items-center gap-1 ${
+                  filterYear === currentYearStr && filterMonth === currentMonthNum
+                    ? 'bg-red-700 text-white shadow-xs'
+                    : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                เดือนนี้ ({currentMonthNum})
+              </button>
+
+              {months.slice(1).map((m) => {
+                const isActive = filterMonth === m.value;
+                return (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setFilterMonth(m.value)}
+                    className={`px-2 py-1 rounded-lg font-medium shrink-0 transition ${
+                      isActive
+                        ? 'bg-red-700 text-white font-bold shadow-xs'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+        {/* High-level KPI Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mb-6">
+          {/* 1. Total Budget */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative overflow-hidden">
             <div className="text-xs text-slate-500 font-semibold flex items-center justify-between">
-              <span>งบประมาณรวม (เพจเซลล์)</span>
+              <span>งบประมาณรวม</span>
               <Wallet className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="text-2xl font-bold text-slate-800 mt-1 font-mono">
+            <div className="text-xl md:text-2xl font-bold text-slate-900 mt-1 font-mono">
               ฿{formatNum(totalBudget)}
             </div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>จำนวนแคมเปญ</span>
+              <span className="font-bold text-slate-700 font-mono">{filteredCampaigns.length} รายการ</span>
+            </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+          {/* 2. Total Spend */}
+          <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative overflow-hidden">
             <div className="text-xs text-slate-500 font-semibold flex items-center justify-between">
-              <span>ยอดจ่ายจริงรวม (เพจเซลล์)</span>
+              <span>ยอดจ่ายจริงรวม</span>
               <CreditCard className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="text-2xl font-bold text-slate-800 mt-1 font-mono">
+            <div className="text-xl md:text-2xl font-bold text-slate-900 mt-1 font-mono">
               ฿{formatNum(totalSpend)}
             </div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>อัตราการใช้งบ</span>
+              <span className={`font-bold font-mono ${budgetUsageRate > 100 ? 'text-rose-600' : 'text-slate-700'}`}>
+                {budgetUsageRate.toFixed(1)}%
+              </span>
+            </div>
           </div>
 
-          <div className="bg-sky-50 border border-sky-200 p-4 rounded-2xl">
-            <div className="text-xs text-sky-700 font-semibold flex items-center justify-between">
-              <span>Inbox รวม (เพจเซลล์)</span>
+          {/* 3. Budget Variance (Diff) */}
+          <div
+            className={`border p-4 rounded-2xl relative overflow-hidden ${
+              totalDiff >= 0
+                ? 'bg-emerald-50/60 border-emerald-200 text-emerald-900'
+                : 'bg-rose-50/60 border-rose-200 text-rose-900'
+            }`}
+          >
+            <div className="text-xs font-semibold flex items-center justify-between opacity-80">
+              <span>{totalDiff >= 0 ? 'งบคงเหลือรวม' : 'ยอดเกินงบประมาณ'}</span>
+              {totalDiff >= 0 ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+              )}
+            </div>
+            <div
+              className={`text-xl md:text-2xl font-bold mt-1 font-mono ${
+                totalDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'
+              }`}
+            >
+              ฿{formatNum(Math.abs(totalDiff))}
+            </div>
+            <div className="text-[11px] opacity-80 mt-1">
+              {totalDiff >= 0 ? 'ควบคุมงบได้ดี (อยู่ในงบ)' : 'ใช้จ่ายเกินงบที่ตั้งไว้'}
+            </div>
+          </div>
+
+          {/* 4. Total Inbox */}
+          <div className="bg-sky-50 border border-sky-200 p-4 rounded-2xl relative overflow-hidden">
+            <div className="text-xs text-sky-800 font-semibold flex items-center justify-between">
+              <span>Inbox ข้อความรวม</span>
               <MessageSquare className="w-4 h-4 text-sky-500" />
             </div>
-            <div className="text-2xl font-bold text-sky-800 mt-1 font-mono">
-              {totalInbox}
+            <div className="text-xl md:text-2xl font-bold text-sky-900 mt-1 font-mono">
+              {formatNum(totalInbox)} <span className="text-xs font-normal text-sky-700">Inbox</span>
+            </div>
+            <div className="text-[11px] text-sky-700 mt-1">
+              {filteredCampaigns.length > 0
+                ? `เฉลี่ย ${(totalInbox / filteredCampaigns.length).toFixed(1)} ข้อความ/แคมเปญ`
+                : 'ไม่มีข้อมูล'}
             </div>
           </div>
 
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
-            <div className="text-xs text-emerald-700 font-semibold flex items-center justify-between">
+          {/* 5. Avg Cost Per Inbox (CPI) */}
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl relative overflow-hidden">
+            <div className="text-xs text-amber-800 font-semibold flex items-center justify-between">
               <span>ต้นทุนเฉลี่ยต่อ Inbox</span>
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
+              <TrendingUp className="w-4 h-4 text-amber-600" />
             </div>
-            <div className="text-2xl font-bold text-emerald-700 mt-1 font-mono">
+            <div className="text-xl md:text-2xl font-bold text-amber-900 mt-1 font-mono">
               ฿{formatNum(avgCPI)}
+            </div>
+            <div className="text-[11px] text-amber-700 mt-1">
+              คำนวณจาก (ยอดจ่ายจริง ÷ Inbox)
             </div>
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-red-700 text-white font-semibold">
-              <tr>
-                <th className="p-3">เดือน</th>
-                <th className="p-3">เซลล์เจ้าของเพจ</th>
-                <th className="p-3">ชื่อแคมเปญ</th>
-                <th className="p-3">ประเภท</th>
-                <th className="p-3 text-right">งบประมาณ</th>
-                <th className="p-3 text-right">จำนวนเงินที่จ่าย</th>
-                <th className="p-3 text-center">Inbox</th>
-                <th className="p-3 text-right">ต้นทุน/Inbox</th>
-                <th className="p-3 text-center">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
-              {filteredCampaigns.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="text-center py-8 text-slate-400">
-                    ยังไม่มีข้อมูลแคมเปญเพจสาขา
-                  </td>
-                </tr>
-              ) : (
-                filteredCampaigns.map((sc) => {
-                  const b = Number(sc.budget) || 0;
-                  const s = Number(sc.spend) || 0;
-                  const inb = Number(sc.inbox) || 0;
-                  const cpi = inb > 0 ? s / inb : 0;
+        {/* View Mode Tabs (สลับมุมมอง รายการแคมเปญ / สรุปแยกตามเซลล์ / สรุปตามรุ่นรถ / สรุปรายเดือน) */}
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 mb-4 gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                viewMode === 'table'
+                  ? 'bg-red-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+              <span>รายการแคมเปญทั้งหมด ({filteredCampaigns.length})</span>
+            </button>
 
-                  return (
-                    <tr key={sc.id} className="hover:bg-slate-50 transition border-b border-slate-100">
-                      <td className="p-3 font-semibold text-slate-700 font-mono">{sc.month}</td>
-                      <td className="p-3 font-bold text-red-700">{sc.salesAgent}</td>
-                      <td className="p-3 font-semibold text-slate-900">{sc.campaignName}</td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-[11px] font-bold border border-red-200">
-                          {sc.category}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-mono">฿{formatNum(b)}</td>
-                      <td className="p-3 text-right font-semibold text-slate-700 font-mono">฿{formatNum(s)}</td>
-                      <td className="p-3 text-center font-bold text-slate-800 font-mono">{inb}</td>
-                      <td className="p-3 text-right font-bold text-red-700 font-mono">฿{formatNum(cpi)}</td>
-                      <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('sales_summary')}
+              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                viewMode === 'sales_summary'
+                  ? 'bg-red-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>สรุปแยกตามเซลล์ / เพจสาขา ({salesSummary.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('category_summary')}
+              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                viewMode === 'category_summary'
+                  ? 'bg-red-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>สรุปตามประเภทรถ ({categorySummary.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('monthly_summary')}
+              className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
+                viewMode === 'monthly_summary'
+                  ? 'bg-red-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>สรุปรายเดือน ({monthlySummary.length})</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-500 font-medium">
+            ช่วงเวลา:{' '}
+            <span className="font-bold text-red-700">
+              {filterYear ? `ปี ${filterYear}` : 'ทุกปี'}
+              {filterMonth ? ` / ${months.find((m) => m.value === filterMonth)?.fullName || filterMonth}` : ' (ทุกเดือน)'}
+            </span>
+          </div>
+        </div>
+
+        {/* View 1: Detailed Table (ตารางแคมเปญทั้งหมด) */}
+        {viewMode === 'table' && (
+          <div className="space-y-4">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-red-700 text-white font-semibold">
+                  <tr>
+                    <th className="p-3 w-10 text-center">#</th>
+                    <th className="p-3">เดือน</th>
+                    <th className="p-3">เซลล์เจ้าของเพจ</th>
+                    <th className="p-3">ชื่อแคมเปญเพจสาขา</th>
+                    <th className="p-3">ประเภท</th>
+                    <th className="p-3 text-right">งบประมาณ</th>
+                    <th className="p-3 text-right">ยอดจ่ายจริง</th>
+                    <th className="p-3 text-right">ส่วนต่าง</th>
+                    <th className="p-3 text-center">Inbox</th>
+                    <th className="p-3 text-right">ต้นทุน/Inbox</th>
+                    <th className="p-3 text-center w-28">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {filteredCampaigns.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="text-center py-10 text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Megaphone className="w-8 h-8 text-slate-300" />
+                          <p>ไม่พบข้อมูลแคมเปญเพจสาขาตามเงื่อนไขที่เลือก</p>
                           <button
-                            onClick={() => openEditModal(sc)}
-                            title="แก้ไขแคมเปญ"
-                            className="p-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+                            type="button"
+                            onClick={openAddModal}
+                            className="mt-2 text-xs font-semibold text-red-600 hover:text-red-700 underline"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm('คุณต้องการลบรายการแคมเปญเพจเซลล์นี้หรือไม่?')) {
-                                onDeleteCampaign(sc.id);
-                              }
-                            }}
-                            title="ลบแคมเปญ"
-                            className="p-1.5 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            + เพิ่มข้อมูลแคมเปญใหม่ตอนนี้
                           </button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    filteredCampaigns.map((sc, idx) => {
+                      const b = Number(sc.budget) || 0;
+                      const s = Number(sc.spend) || 0;
+                      const diff = b - s;
+                      const inb = Number(sc.inbox) || 0;
+                      const cpi = inb > 0 ? s / inb : 0;
+                      const isOver = s > b;
+
+                      return (
+                        <tr key={sc.id} className="hover:bg-slate-50 transition border-b border-slate-100">
+                          <td className="p-3 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                          <td className="p-3 font-semibold text-slate-700 font-mono whitespace-nowrap">
+                            {sc.month}
+                          </td>
+                          <td className="p-3 font-bold text-red-700 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => setFilterSales(sc.salesAgent)}
+                              className="hover:underline text-left"
+                              title="คลิกเพื่อกรองเฉพาะเซลล์นี้"
+                            >
+                              {sc.salesAgent}
+                            </button>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-900 max-w-xs">
+                            <span className="line-clamp-2" title={sc.campaignName}>
+                              {sc.campaignName}
+                            </span>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span
+                              onClick={() => setFilterCategory(sc.category)}
+                              className="px-2 py-0.5 rounded text-[11px] font-bold border cursor-pointer hover:opacity-80 transition inline-block"
+                              style={{
+                                backgroundColor: `${appData.categoryColors[sc.category] || '#ef4444'}15`,
+                                borderColor: `${appData.categoryColors[sc.category] || '#ef4444'}50`,
+                                color: appData.categoryColors[sc.category] || '#ef4444',
+                              }}
+                              title="คลิกเพื่อกรองหมวดหมู่นี้"
+                            >
+                              {sc.category}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono font-medium text-slate-700 whitespace-nowrap">
+                            ฿{formatNum(b)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                            ฿{formatNum(s)}
+                          </td>
+                          <td
+                            className={`p-3 text-right font-mono font-semibold whitespace-nowrap ${
+                              isOver ? 'text-rose-600' : 'text-emerald-600'
+                            }`}
+                          >
+                            {diff >= 0 ? `+฿${formatNum(diff)}` : `-฿${formatNum(Math.abs(diff))}`}
+                          </td>
+                          <td className="p-3 text-center font-bold text-sky-800 font-mono whitespace-nowrap">
+                            {formatNum(inb)}
+                          </td>
+                          <td className="p-3 text-right font-bold text-red-700 font-mono whitespace-nowrap">
+                            ฿{formatNum(cpi)}
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleDuplicateCampaign(sc)}
+                                title="คัดลอกแคมเปญนี้เพื่อลงเดือนใหม่"
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => openEditModal(sc)}
+                                title="แก้ไขข้อมูลแคมเปญ"
+                                className="p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`ยืนยันการลบแคมเปญ "${sc.campaignName}" หรือไม่?`)) {
+                                    onDeleteCampaign(sc.id);
+                                  }
+                                }}
+                                title="ลบข้อมูลแคมเปญ"
+                                className="p-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+
+                {/* Table Footer with Summary */}
+                {filteredCampaigns.length > 0 && (
+                  <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-800">
+                    <tr>
+                      <td colSpan={5} className="p-3 text-right">
+                        สรุปรวมทั้งหมด ({filteredCampaigns.length} รายการ):
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-900">
+                        ฿{formatNum(totalBudget)}
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-900">
+                        ฿{formatNum(totalSpend)}
+                      </td>
+                      <td
+                        className={`p-3 text-right font-mono ${
+                          totalDiff >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                        }`}
+                      >
+                        {totalDiff >= 0 ? `+฿${formatNum(totalDiff)}` : `-฿${formatNum(Math.abs(totalDiff))}`}
+                      </td>
+                      <td className="p-3 text-center font-mono text-sky-800">
+                        {formatNum(totalInbox)}
+                      </td>
+                      <td className="p-3 text-right font-mono text-red-700">
+                        ฿{formatNum(avgCPI)}
+                      </td>
+                      <td className="p-3 text-center">-</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* View 2: Summary by Sales Agent (สรุปแยกตามเซลล์ / เพจสาขา) */}
+        {viewMode === 'sales_summary' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-amber-500" />
+                ตารางสรุปประสิทธิภาพแคมเปญเพจแยกตามเซลล์และสาขา
+              </span>
+              <span>เรียงตามยอด Inbox สูงสุด</span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-red-700 text-white font-semibold">
+                  <tr>
+                    <th className="p-3 w-10 text-center">อันดับ</th>
+                    <th className="p-3">เซลล์เจ้าของเพจ</th>
+                    <th className="p-3 text-center">จำนวนแคมเปญ</th>
+                    <th className="p-3 text-right">งบประมาณรวม</th>
+                    <th className="p-3 text-right">ยอดจ่ายจริงรวม</th>
+                    <th className="p-3 text-right">ส่วนต่างคงเหลือ</th>
+                    <th className="p-3 text-center">Inbox รวม</th>
+                    <th className="p-3 text-center">สัดส่วน Inbox</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
+                    <th className="p-3 text-center">อัตราการใช้งบ</th>
+                    <th className="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {salesSummary.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="text-center py-8 text-slate-400">
+                        ไม่มีข้อมูลสรุปตามเงื่อนไขที่เลือก
+                      </td>
+                    </tr>
+                  ) : (
+                    salesSummary.map((item, idx) => {
+                      const isTop = idx === 0 && item.inbox > 0;
+                      const isOver = item.spend > item.budget && item.budget > 0;
+
+                      return (
+                        <tr key={item.salesAgent} className="hover:bg-slate-50 transition border-b border-slate-100">
+                          <td className="p-3 text-center">
+                            {isTop ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 font-bold text-[11px]">
+                                🏆
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-mono text-[11px]">{idx + 1}</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-bold text-slate-900">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.salesAgent}</span>
+                              {isTop && (
+                                <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                                  Top Inbox
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-center font-mono font-semibold text-slate-700">
+                            {item.count}
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-700">
+                            ฿{formatNum(item.budget)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900">
+                            ฿{formatNum(item.spend)}
+                          </td>
+                          <td
+                            className={`p-3 text-right font-mono font-semibold ${
+                              item.diff >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {item.diff >= 0 ? `+฿${formatNum(item.diff)}` : `-฿${formatNum(Math.abs(item.diff))}`}
+                          </td>
+                          <td className="p-3 text-center font-bold text-sky-800 font-mono">
+                            {formatNum(item.inbox)}
+                          </td>
+                          <td className="p-3 text-center font-mono text-slate-600">
+                            <div className="flex items-center justify-center gap-1">
+                              <span>{item.inboxShare.toFixed(1)}%</span>
+                              <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-sky-600 h-full rounded-full"
+                                  style={{ width: `${Math.min(item.inboxShare, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-red-700">
+                            ฿{formatNum(item.cpi)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                isOver
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {item.usageRate.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilterSales(item.salesAgent);
+                                setViewMode('table');
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800 font-semibold underline"
+                            >
+                              ดูรายการแคมเปญ
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* View 3: Summary by Category (สรุปตามรุ่นรถ) */}
+        {viewMode === 'category_summary' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-red-600" />
+                ตารางสรุปประสิทธิภาพงบประมาณและการตอบรับ แยกตามรุ่น/หมวดหมู่
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-red-700 text-white font-semibold">
+                  <tr>
+                    <th className="p-3">ประเภท / รุ่นรถ</th>
+                    <th className="p-3 text-center">จำนวนแคมเปญ</th>
+                    <th className="p-3 text-right">งบประมาณรวม</th>
+                    <th className="p-3 text-right">ยอดจ่ายจริงรวม</th>
+                    <th className="p-3 text-right">ส่วนต่าง</th>
+                    <th className="p-3 text-center">Inbox รวม</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
+                    <th className="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {categorySummary.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-slate-400">
+                        ไม่มีข้อมูลแคมเปญตามเงื่อนไขที่เลือก
+                      </td>
+                    </tr>
+                  ) : (
+                    categorySummary.map((item) => (
+                      <tr key={item.category} className="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td className="p-3 font-bold">
+                          <span
+                            className="px-2.5 py-1 rounded text-xs font-bold border inline-block"
+                            style={{
+                              backgroundColor: `${appData.categoryColors[item.category] || '#ef4444'}15`,
+                              borderColor: `${appData.categoryColors[item.category] || '#ef4444'}50`,
+                              color: appData.categoryColors[item.category] || '#ef4444',
+                            }}
+                          >
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center font-mono font-semibold text-slate-700">
+                          {item.count}
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-700">
+                          ฿{formatNum(item.budget)}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          ฿{formatNum(item.spend)}
+                        </td>
+                        <td
+                          className={`p-3 text-right font-mono font-semibold ${
+                            item.diff >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}
+                        >
+                          {item.diff >= 0 ? `+฿${formatNum(item.diff)}` : `-฿${formatNum(Math.abs(item.diff))}`}
+                        </td>
+                        <td className="p-3 text-center font-bold text-sky-800 font-mono">
+                          {formatNum(item.inbox)}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-red-700">
+                          ฿{formatNum(item.cpi)}
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilterCategory(item.category);
+                              setViewMode('table');
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 font-semibold underline"
+                          >
+                            ดูรายการแคมเปญ
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* View 4: Monthly Summary (สรุปเปรียบเทียบรายเดือน) */}
+        {viewMode === 'monthly_summary' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-red-600" />
+                ตารางสรุปเปรียบเทียบสถิติและค่าใช้จ่ายรายเดือน (Monthly Comparison)
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-red-700 text-white font-semibold">
+                  <tr>
+                    <th className="p-3">เดือน (YYYY-MM)</th>
+                    <th className="p-3 text-center">จำนวนแคมเปญ</th>
+                    <th className="p-3 text-right">งบประมาณรวม</th>
+                    <th className="p-3 text-right">ยอดจ่ายจริงรวม</th>
+                    <th className="p-3 text-right">ส่วนต่าง</th>
+                    <th className="p-3 text-center">Inbox รวม</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
+                    <th className="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {monthlySummary.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-slate-400">
+                        ไม่มีข้อมูลแคมเปญตามเงื่อนไขที่เลือก
+                      </td>
+                    </tr>
+                  ) : (
+                    monthlySummary.map((item) => {
+                      const mParts = item.month.split('-');
+                      const mObj = months.find((m) => m.value === mParts[1]);
+                      const mTitle = mObj?.fullName ? `${mObj.fullName} ${mParts[0]}` : item.month;
+
+                      return (
+                        <tr key={item.month} className="hover:bg-slate-50 transition border-b border-slate-100">
+                          <td className="p-3 font-bold text-slate-900 font-mono">
+                            <div>{item.month}</div>
+                            <div className="text-[11px] font-normal text-slate-500 font-sans">{mTitle}</div>
+                          </td>
+                          <td className="p-3 text-center font-mono font-semibold text-slate-700">
+                            {item.count}
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-700">
+                            ฿{formatNum(item.budget)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900">
+                            ฿{formatNum(item.spend)}
+                          </td>
+                          <td
+                            className={`p-3 text-right font-mono font-semibold ${
+                              item.diff >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`}
+                          >
+                            {item.diff >= 0 ? `+฿${formatNum(item.diff)}` : `-฿${formatNum(Math.abs(item.diff))}`}
+                          </td>
+                          <td className="p-3 text-center font-bold text-sky-800 font-mono">
+                            {formatNum(item.inbox)}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-red-700">
+                            ฿{formatNum(item.cpi)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFilterYear(mParts[0]);
+                                setFilterMonth(mParts[1]);
+                                setViewMode('table');
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800 font-semibold underline"
+                            >
+                              กรองดูเฉพาะเดือนนี้
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal: เพิ่ม / แก้ไข แคมเปญเพจสาขา */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl my-8 border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl my-8 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-sm font-bold text-red-700 flex items-center gap-1.5">
                 <Megaphone className="w-4 h-4" />
-                {editId ? 'แก้ไขแคมเปญเพจสาขา' : 'เพิ่มแคมเปญเพจสาขา'}
+                {editId ? 'แก้ไขข้อมูลแคมเปญเพจสาขา' : 'เพิ่มแคมเปญเพจสาขาใหม่'}
               </h3>
-              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -383,9 +1381,9 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                   <input
                     type="month"
                     required
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl focus:ring-1 focus:ring-red-500 font-mono"
+                    value={modalMonth}
+                    onChange={(e) => setModalMonth(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none font-mono"
                   />
                 </div>
                 <div>
@@ -394,10 +1392,11 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                   </label>
                   <select
                     required
-                    value={salesAgent}
-                    onChange={(e) => setSalesAgent(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl bg-white focus:ring-1 focus:ring-red-500"
+                    value={modalSalesAgent}
+                    onChange={(e) => setModalSalesAgent(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-red-500 focus:outline-none font-semibold text-slate-800"
                   >
+                    <option value="" disabled>-- เลือกเซลล์ --</option>
                     {appData.salesAgents.map((s) => (
                       <option key={s} value={s}>
                         {s}
@@ -409,28 +1408,28 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
 
               <div>
                 <label className="block font-semibold mb-1 text-slate-700">
-                  ชื่อแคมเปญ <span className="text-red-500">*</span>
+                  ชื่อแคมเปญ / โพสต์แอด <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="เช่น ยิงแอดตามหาลูกค้า MU-X ดอกเบี้ย 0.99%"
-                  value={campaignName}
-                  onChange={(e) => setCampaignName(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-xl focus:ring-1 focus:ring-red-500"
+                  placeholder="เช่น เพจสมชาย - แคมเปญ MU-X ดอกเบี้ยพิเศษ 0.99%"
+                  value={modalCampaignName}
+                  onChange={(e) => setModalCampaignName(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold mb-1 text-slate-700">
-                    ประเภท <span className="text-red-500">*</span>
+                    ประเภท / รุ่นรถ <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl bg-white focus:ring-1 focus:ring-red-500"
+                    value={modalCategory}
+                    onChange={(e) => setModalCategory(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-red-500 focus:outline-none font-medium"
                   >
                     {categories.map((c) => (
                       <option key={c} value={c}>
@@ -441,15 +1440,16 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                 </div>
                 <div>
                   <label className="block font-semibold mb-1 text-slate-700">
-                    จำนวน Inbox <span className="text-red-500">*</span>
+                    จำนวน Inbox (ข้อความ) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
                     required
-                    value={inbox}
-                    onChange={(e) => setInbox(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl focus:ring-1 focus:ring-red-500 font-mono"
+                    placeholder="เช่น 45"
+                    value={modalInbox}
+                    onChange={(e) => setModalInbox(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none font-mono font-semibold"
                   />
                 </div>
               </div>
@@ -464,9 +1464,10 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     step="0.01"
                     min="0"
                     required
-                    value={budget}
-                    onChange={(e) => setBudget(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl focus:ring-1 focus:ring-red-500 font-mono"
+                    placeholder="เช่น 10000"
+                    value={modalBudget}
+                    onChange={(e) => setModalBudget(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none font-mono"
                   />
                 </div>
                 <div>
@@ -478,27 +1479,60 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     step="0.01"
                     min="0"
                     required
-                    value={spend}
-                    onChange={(e) => setSpend(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-xl focus:ring-1 focus:ring-red-500 font-mono"
+                    placeholder="เช่น 9500"
+                    value={modalSpend}
+                    onChange={(e) => setModalSpend(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none font-mono"
                   />
                 </div>
               </div>
+
+              {/* Live Preview of Calculated Metrics */}
+              {(modalBudgetValue > 0 || modalSpendValue > 0 || modalInboxValue > 0) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+                  <div>
+                    <span className="text-slate-500 block">ส่วนต่างงบ:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        modalDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                      }`}
+                    >
+                      {modalDiff >= 0 ? `+฿${formatNum(modalDiff)}` : `-฿${formatNum(Math.abs(modalDiff))}`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">ต้นทุน/Inbox:</span>
+                    <span className="font-mono font-bold text-red-700">
+                      ฿{formatNum(modalCPI)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">ใช้งบไป:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        modalUsageRate > 100 ? 'text-rose-600' : 'text-slate-800'
+                      }`}
+                    >
+                      {modalUsageRate.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 border border-slate-300 rounded-xl hover:bg-slate-50 font-medium text-slate-700"
+                  className="px-4 py-2 border border-slate-300 rounded-xl hover:bg-slate-50 font-medium text-slate-700 transition"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5"
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-xs flex items-center gap-1.5 transition"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  บันทึก
+                  บันทึกข้อมูล
                 </button>
               </div>
             </form>
