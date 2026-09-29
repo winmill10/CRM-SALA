@@ -56,7 +56,7 @@ export const INITIAL_DATA: AppData = {
     "4x4": "#10b981",
     "EVENT": "#f59e0b"
   },
-  statuses: ["PS", "BK", "RS", "CC", "ได้คุย"],
+  statuses: ["ได้คุย", "PS", "BK", "RS", "CC"],
   customers: [
     {
       id: 1,

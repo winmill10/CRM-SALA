@@ -45,7 +45,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [salesAgent, setSalesAgent] = useState('');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
-  const [status, setStatus] = useState('PS');
+  const [status, setStatus] = useState('ได้คุย');
   const [phone, setPhone] = useState('');
   const [image, setImage] = useState('');
   const [followUpResult, setFollowUpResult] = useState('');
@@ -170,6 +170,17 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     }
   };
 
+  // Ensure "ได้คุย" is at the top of the dropdown list
+  const orderedStatuses = useMemo(() => {
+    const list = [...(appData.statuses || [])];
+    const index = list.indexOf('ได้คุย');
+    if (index > -1) {
+      list.splice(index, 1);
+      return ['ได้คุย', ...list];
+    }
+    return list.length > 0 ? ['ได้คุย', ...list] : ['ได้คุย', 'PS', 'BK', 'RS', 'CC'];
+  }, [appData.statuses]);
+
   const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -195,7 +206,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     } else if (availableSalesAgents.length > 0) {
       setSalesAgent(availableSalesAgents[0]);
     }
-    setStatus('PS');
+    setStatus('ได้คุย');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -656,7 +667,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
               onChange={(e) => setStatus(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-red-500 focus:outline-none text-xs bg-white font-bold text-red-700"
             >
-              {appData.statuses.map((st) => (
+              {orderedStatuses.map((st) => (
                 <option key={st} value={st}>
                   {st}
                 </option>
