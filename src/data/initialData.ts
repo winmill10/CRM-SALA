@@ -237,6 +237,7 @@ export const INITIAL_DATA: AppData = {
       spend: 7800,
       inbox: 34,
       ps: 9,
+      bk: 3,
       image: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&h=600&fit=crop"
     },
     {
@@ -249,6 +250,7 @@ export const INITIAL_DATA: AppData = {
       spend: 9200,
       inbox: 42,
       ps: 12,
+      bk: 4,
       image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&h=600&fit=crop"
     },
     {
@@ -261,6 +263,7 @@ export const INITIAL_DATA: AppData = {
       spend: 6400,
       inbox: 28,
       ps: 7,
+      bk: 2,
       image: ""
     },
     {
@@ -273,6 +276,7 @@ export const INITIAL_DATA: AppData = {
       spend: 6500,
       inbox: 31,
       ps: 8,
+      bk: 3,
       image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&h=600&fit=crop"
     }
   ],

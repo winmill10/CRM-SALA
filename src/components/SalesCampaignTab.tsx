@@ -32,7 +32,8 @@ import {
   Image as ImageIcon,
   Upload,
   Maximize2,
-  Loader2
+  Loader2,
+  BookmarkCheck
 } from 'lucide-react';
 
 interface SalesCampaignTabProps {
@@ -74,6 +75,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
   const [modalSpend, setModalSpend] = useState<string | number>('');
   const [modalInbox, setModalInbox] = useState<string | number>('');
   const [modalPS, setModalPS] = useState<string | number>('');
+  const [modalBK, setModalBK] = useState<string | number>('');
   const [modalImage, setModalImage] = useState<string>('');
   const [imageLoading, setImageLoading] = useState<boolean>(false);
   const [compressionInfo, setCompressionInfo] = useState<{ orig: number; comp: number } | null>(null);
@@ -138,20 +140,39 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
   }, [appData.salesCampaigns, filterYear, filterMonth, filterSales, filterCategory, searchQuery]);
 
   // High-level KPI aggregations
-  const { totalBudget, totalSpend, totalDiff, totalInbox, totalPS, avgCPI, avgCPPS, convInboxToPS, budgetUsageRate } = useMemo(() => {
+  const {
+    totalBudget,
+    totalSpend,
+    totalDiff,
+    totalInbox,
+    totalPS,
+    totalBK,
+    avgCPI,
+    avgCPPS,
+    avgCPBK,
+    convInboxToPS,
+    convInboxToBK,
+    convPSToBK,
+    budgetUsageRate,
+  } = useMemo(() => {
     let b = 0;
     let s = 0;
     let i = 0;
     let p = 0;
+    let k = 0;
     filteredCampaigns.forEach((sc) => {
       b += Number(sc.budget) || 0;
       s += Number(sc.spend) || 0;
       i += Number(sc.inbox) || 0;
       p += Number(sc.ps) || 0;
+      k += Number(sc.bk) || 0;
     });
     const cpi = i > 0 ? s / i : 0;
     const cpps = p > 0 ? s / p : 0;
-    const conv = i > 0 ? (p / i) * 100 : 0;
+    const cpbk = k > 0 ? s / k : 0;
+    const convInboxPS = i > 0 ? (p / i) * 100 : 0;
+    const convInboxBK = i > 0 ? (k / i) * 100 : 0;
+    const convPSBK = p > 0 ? (k / p) * 100 : 0;
     const diff = b - s;
     const usage = b > 0 ? (s / b) * 100 : 0;
 
@@ -161,9 +182,13 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       totalDiff: diff,
       totalInbox: i,
       totalPS: p,
+      totalBK: k,
       avgCPI: cpi,
       avgCPPS: cpps,
-      convInboxToPS: conv,
+      avgCPBK: cpbk,
+      convInboxToPS: convInboxPS,
+      convInboxToBK: convInboxBK,
+      convPSToBK: convPSBK,
       budgetUsageRate: usage,
     };
   }, [filteredCampaigns]);
@@ -179,6 +204,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: number;
         inbox: number;
         ps: number;
+        bk: number;
       }
     >();
 
@@ -191,6 +217,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: 0,
         inbox: 0,
         ps: 0,
+        bk: 0,
       });
     });
 
@@ -203,12 +230,14 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: 0,
         inbox: 0,
         ps: 0,
+        bk: 0,
       };
       existing.count += 1;
       existing.budget += Number(sc.budget) || 0;
       existing.spend += Number(sc.spend) || 0;
       existing.inbox += Number(sc.inbox) || 0;
       existing.ps += Number(sc.ps) || 0;
+      existing.bk += Number(sc.bk) || 0;
       map.set(sc.salesAgent, existing);
     });
 
@@ -218,23 +247,29 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         const diff = item.budget - item.spend;
         const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
         const cpps = item.ps > 0 ? item.spend / item.ps : 0;
+        const cpbk = item.bk > 0 ? item.spend / item.bk : 0;
         const convRate = item.inbox > 0 ? (item.ps / item.inbox) * 100 : 0;
+        const convBKRate = item.inbox > 0 ? (item.bk / item.inbox) * 100 : 0;
         const usageRate = item.budget > 0 ? (item.spend / item.budget) * 100 : 0;
         const inboxShare = totalInbox > 0 ? (item.inbox / totalInbox) * 100 : 0;
         const psShare = totalPS > 0 ? (item.ps / totalPS) * 100 : 0;
+        const bkShare = totalBK > 0 ? (item.bk / totalBK) * 100 : 0;
         return {
           ...item,
           diff,
           cpi,
           cpps,
+          cpbk,
           convRate,
+          convBKRate,
           usageRate,
           inboxShare,
           psShare,
+          bkShare,
         };
       })
       .sort((a, b) => b.inbox - a.inbox);
-  }, [filteredCampaigns, appData.salesAgents, filterSales, totalInbox, totalPS]);
+  }, [filteredCampaigns, appData.salesAgents, filterSales, totalInbox, totalPS, totalBK]);
 
   // Breakdown Summary by Category
   const categorySummary = useMemo(() => {
@@ -247,6 +282,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: number;
         inbox: number;
         ps: number;
+        bk: number;
       }
     >();
 
@@ -258,6 +294,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: 0,
         inbox: 0,
         ps: 0,
+        bk: 0,
       });
     });
 
@@ -269,12 +306,14 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: 0,
         inbox: 0,
         ps: 0,
+        bk: 0,
       };
       existing.count += 1;
       existing.budget += Number(sc.budget) || 0;
       existing.spend += Number(sc.spend) || 0;
       existing.inbox += Number(sc.inbox) || 0;
       existing.ps += Number(sc.ps) || 0;
+      existing.bk += Number(sc.bk) || 0;
       map.set(sc.category, existing);
     });
 
@@ -284,13 +323,17 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         const diff = item.budget - item.spend;
         const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
         const cpps = item.ps > 0 ? item.spend / item.ps : 0;
+        const cpbk = item.bk > 0 ? item.spend / item.bk : 0;
         const convRate = item.inbox > 0 ? (item.ps / item.inbox) * 100 : 0;
+        const convBKRate = item.inbox > 0 ? (item.bk / item.inbox) * 100 : 0;
         return {
           ...item,
           diff,
           cpi,
           cpps,
+          cpbk,
           convRate,
+          convBKRate,
         };
       })
       .sort((a, b) => b.spend - a.spend);
@@ -307,6 +350,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: number;
         inbox: number;
         ps: number;
+        bk: number;
       }
     >();
 
@@ -318,12 +362,14 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         spend: 0,
         inbox: 0,
         ps: 0,
+        bk: 0,
       };
       existing.count += 1;
       existing.budget += Number(sc.budget) || 0;
       existing.spend += Number(sc.spend) || 0;
       existing.inbox += Number(sc.inbox) || 0;
       existing.ps += Number(sc.ps) || 0;
+      existing.bk += Number(sc.bk) || 0;
       map.set(sc.month, existing);
     });
 
@@ -332,13 +378,17 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         const diff = item.budget - item.spend;
         const cpi = item.inbox > 0 ? item.spend / item.inbox : 0;
         const cpps = item.ps > 0 ? item.spend / item.ps : 0;
+        const cpbk = item.bk > 0 ? item.spend / item.bk : 0;
         const convRate = item.inbox > 0 ? (item.ps / item.inbox) * 100 : 0;
+        const convBKRate = item.inbox > 0 ? (item.bk / item.inbox) * 100 : 0;
         return {
           ...item,
           diff,
           cpi,
           cpps,
+          cpbk,
           convRate,
+          convBKRate,
         };
       })
       .sort((a, b) => b.month.localeCompare(a.month));
@@ -396,6 +446,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
     setModalSpend('');
     setModalInbox('');
     setModalPS('');
+    setModalBK('');
     setModalImage('');
     setCompressionInfo(null);
     setImageError('');
@@ -412,6 +463,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
     setModalSpend(sc.spend);
     setModalInbox(sc.inbox);
     setModalPS(sc.ps !== undefined && sc.ps !== null ? sc.ps : '');
+    setModalBK(sc.bk !== undefined && sc.bk !== null ? sc.bk : '');
     setModalImage(sc.image || '');
     setCompressionInfo(null);
     setImageError('');
@@ -428,6 +480,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
     setModalSpend(sc.spend);
     setModalInbox(sc.inbox);
     setModalPS(sc.ps !== undefined && sc.ps !== null ? sc.ps : '');
+    setModalBK(sc.bk !== undefined && sc.bk !== null ? sc.bk : '');
     setModalImage(sc.image || '');
     setCompressionInfo(null);
     setImageError('');
@@ -454,6 +507,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       spend: parseFloat(String(modalSpend)) || 0,
       inbox: parseInt(String(modalInbox), 10) || 0,
       ps: parseInt(String(modalPS), 10) || 0,
+      bk: parseInt(String(modalBK), 10) || 0,
       image: modalImage || '',
     });
 
@@ -485,9 +539,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       const diff = b - s;
       const inb = Number(sc.inbox) || 0;
       const psNum = Number(sc.ps) || 0;
+      const bkNum = Number(sc.bk) || 0;
       const cpi = inb > 0 ? s / inb : 0;
       const cpps = psNum > 0 ? s / psNum : 0;
+      const cpbk = bkNum > 0 ? s / bkNum : 0;
       const conv = inb > 0 ? (psNum / inb) * 100 : 0;
+      const convBK = inb > 0 ? (bkNum / inb) * 100 : 0;
       const statusText = s > b ? 'เกินงบประมาณ' : diff === 0 ? 'ใช้พอดิบพอดี' : 'งบคงเหลือ';
       return {
         'ลำดับ': idx + 1,
@@ -502,9 +559,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
         'สถานะการใช้งบ': statusText,
         'Inbox (ข้อความ)': inb,
         'PS (คน)': psNum,
+        'BK (จองรถ)': bkNum,
         'ต้นทุนต่อ Inbox (บาท)': Number(cpi.toFixed(2)),
         'ต้นทุนต่อ PS (บาท)': Number(cpps.toFixed(2)),
+        'ต้นทุนต่อ BK (บาท)': Number(cpbk.toFixed(2)),
         'อัตราแปลง PS (%)': Number(conv.toFixed(1)),
+        'อัตราแปลง BK (%)': Number(convBK.toFixed(1)),
       };
     });
 
@@ -522,9 +582,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       'สถานะการใช้งบ': totalSpend > totalBudget ? 'เกินงบรวม' : 'งบคงเหลือรวม',
       'Inbox (ข้อความ)': totalInbox,
       'PS (คน)': totalPS,
+      'BK (จองรถ)': totalBK,
       'ต้นทุนต่อ Inbox (บาท)': Number(avgCPI.toFixed(2)),
       'ต้นทุนต่อ PS (บาท)': Number(avgCPPS.toFixed(2)),
+      'ต้นทุนต่อ BK (บาท)': Number(avgCPBK.toFixed(2)),
       'อัตราแปลง PS (%)': Number(convInboxToPS.toFixed(1)),
+      'อัตราแปลง BK (%)': Number(convInboxToBK.toFixed(1)),
     });
 
     const worksheetDetails = XLSX.utils.json_to_sheet(detailRows);
@@ -541,8 +604,11 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       { wch: 16 },
       { wch: 14 },
       { wch: 12 },
+      { wch: 12 },
       { wch: 20 },
       { wch: 20 },
+      { wch: 20 },
+      { wch: 16 },
       { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(workbook, worksheetDetails, 'รายละเอียดแคมเปญ');
@@ -557,9 +623,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       'ส่วนต่าง (บาท)': item.diff,
       'Inbox รวม (ข้อความ)': item.inbox,
       'PS รวม (คน)': item.ps,
+      'BK รวม (คน/คัน)': item.bk,
       'ต้นทุนเฉลี่ย/Inbox (บาท)': Number(item.cpi.toFixed(2)),
       'ต้นทุนเฉลี่ย/PS (บาท)': Number(item.cpps.toFixed(2)),
+      'ต้นทุนเฉลี่ย/BK (บาท)': Number(item.cpbk.toFixed(2)),
       'แปลงเป็น PS (%)': Number(item.convRate.toFixed(1)),
+      'แปลงเป็น BK (%)': Number(item.convBKRate.toFixed(1)),
       'อัตราการใช้งบ (%)': Number(item.usageRate.toFixed(1)),
       'สัดส่วน Inbox (%)': Number(item.inboxShare.toFixed(1)),
     }));
@@ -573,8 +642,11 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       { wch: 16 },
       { wch: 16 },
       { wch: 14 },
+      { wch: 14 },
       { wch: 20 },
       { wch: 20 },
+      { wch: 20 },
+      { wch: 16 },
       { wch: 16 },
       { wch: 16 },
       { wch: 16 },
@@ -591,9 +663,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       'ส่วนต่าง (บาท)': item.diff,
       'Inbox รวม (ข้อความ)': item.inbox,
       'PS รวม (คน)': item.ps,
+      'BK รวม (คน/คัน)': item.bk,
       'ต้นทุนเฉลี่ย/Inbox (บาท)': Number(item.cpi.toFixed(2)),
       'ต้นทุนเฉลี่ย/PS (บาท)': Number(item.cpps.toFixed(2)),
+      'ต้นทุนเฉลี่ย/BK (บาท)': Number(item.cpbk.toFixed(2)),
       'แปลงเป็น PS (%)': Number(item.convRate.toFixed(1)),
+      'แปลงเป็น BK (%)': Number(item.convBKRate.toFixed(1)),
     }));
     const worksheetCat = XLSX.utils.json_to_sheet(catSummaryRows);
     worksheetCat['!cols'] = [
@@ -605,8 +680,11 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       { wch: 16 },
       { wch: 16 },
       { wch: 14 },
+      { wch: 14 },
       { wch: 20 },
       { wch: 20 },
+      { wch: 20 },
+      { wch: 16 },
       { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(workbook, worksheetCat, 'สรุปแยกตามรุ่นรถ');
@@ -621,9 +699,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       'ส่วนต่าง (บาท)': item.diff,
       'Inbox รวม (ข้อความ)': item.inbox,
       'PS รวม (คน)': item.ps,
+      'BK รวม (คน/คัน)': item.bk,
       'ต้นทุนเฉลี่ย/Inbox (บาท)': Number(item.cpi.toFixed(2)),
       'ต้นทุนเฉลี่ย/PS (บาท)': Number(item.cpps.toFixed(2)),
+      'ต้นทุนเฉลี่ย/BK (บาท)': Number(item.cpbk.toFixed(2)),
       'แปลงเป็น PS (%)': Number(item.convRate.toFixed(1)),
+      'แปลงเป็น BK (%)': Number(item.convBKRate.toFixed(1)),
     }));
     const worksheetMonthly = XLSX.utils.json_to_sheet(monthlySummaryRows);
     worksheetMonthly['!cols'] = [
@@ -635,8 +716,11 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
       { wch: 16 },
       { wch: 16 },
       { wch: 14 },
+      { wch: 14 },
       { wch: 20 },
       { wch: 20 },
+      { wch: 20 },
+      { wch: 16 },
       { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(workbook, worksheetMonthly, 'สรุปเปรียบเทียบรายเดือน');
@@ -650,10 +734,13 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
   const modalSpendValue = parseFloat(String(modalSpend)) || 0;
   const modalInboxValue = parseInt(String(modalInbox), 10) || 0;
   const modalPSValue = parseInt(String(modalPS), 10) || 0;
+  const modalBKValue = parseInt(String(modalBK), 10) || 0;
   const modalDiff = modalBudgetValue - modalSpendValue;
   const modalCPI = modalInboxValue > 0 ? modalSpendValue / modalInboxValue : 0;
   const modalCPPS = modalPSValue > 0 ? modalSpendValue / modalPSValue : 0;
+  const modalCPBK = modalBKValue > 0 ? modalSpendValue / modalBKValue : 0;
   const modalConvRate = modalInboxValue > 0 ? (modalPSValue / modalInboxValue) * 100 : 0;
+  const modalConvBKRate = modalInboxValue > 0 ? (modalBKValue / modalInboxValue) * 100 : 0;
   const modalUsageRate = modalBudgetValue > 0 ? (modalSpendValue / modalBudgetValue) * 100 : 0;
 
   return (
@@ -889,8 +976,8 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
           </div>
         </div>
 
-        {/* High-level KPI Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {/* High-level KPI Summary Cards - ครอบคลุม Budget, Spend, Inbox, PS, BK และอัตราการแปลง */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-6">
           {/* 1. Total Budget */}
           <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
             <div className="text-xs text-slate-500 font-semibold flex items-center justify-between">
@@ -984,17 +1071,49 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
             </div>
           </div>
 
-          {/* 6. Conversion Rate Inbox -> PS */}
-          <div className="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-            <div className="text-xs text-amber-800 font-semibold flex items-center justify-between">
-              <span>อัตราแปลง Inbox ➔ PS</span>
-              <Target className="w-4 h-4 text-amber-600" />
+          {/* 6. Total BK (Bookings) - สรุป BK รวม */}
+          <div className="bg-amber-50/80 border border-amber-300 p-3.5 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-2xs">
+            <div className="text-xs text-amber-900 font-bold flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <span className="bg-amber-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">BK</span>
+                <span>สรุป BK (จองรถ) รวม</span>
+              </span>
+              <BookmarkCheck className="w-4 h-4 text-amber-600" />
             </div>
-            <div className="text-lg md:text-xl font-bold text-amber-900 mt-1 font-mono">
+            <div className="text-lg md:text-xl font-bold text-amber-950 mt-1 font-mono">
+              {formatNum(totalBK)} <span className="text-xs font-normal text-amber-800">คัน/คน</span>
+            </div>
+            <div className="text-[11px] text-amber-800 mt-1 flex items-center justify-between">
+              <span>ต้นทุนเฉลี่ย/BK:</span>
+              <span className="font-bold font-mono text-amber-950">฿{formatNum(avgCPBK)}</span>
+            </div>
+          </div>
+
+          {/* 7. Conversion Rate Inbox -> PS */}
+          <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+            <div className="text-xs text-slate-700 font-semibold flex items-center justify-between">
+              <span>แปลง Inbox ➔ PS</span>
+              <Target className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-lg md:text-xl font-bold text-indigo-950 mt-1 font-mono">
               {convInboxToPS.toFixed(1)}%
             </div>
-            <div className="text-[11px] text-amber-800 mt-1 truncate">
-              {totalPS > 0 ? `เฉลี่ย ${totalInbox > 0 ? (totalInbox / totalPS).toFixed(1) : 0} Inbox/PS` : 'ยังไม่มี PS'}
+            <div className="text-[11px] text-slate-500 mt-1 truncate">
+              {totalPS > 0 ? `เฉลี่ย ${totalInbox > 0 ? (totalInbox / totalPS).toFixed(1) : 0} ข้อความ/PS` : 'ยังไม่มี PS'}
+            </div>
+          </div>
+
+          {/* 8. Conversion Rate Inbox -> BK & PS -> BK */}
+          <div className="bg-emerald-50/70 border border-emerald-200 p-3.5 rounded-2xl relative overflow-hidden flex flex-col justify-between">
+            <div className="text-xs text-emerald-800 font-semibold flex items-center justify-between">
+              <span>แปลง Inbox ➔ BK</span>
+              <Award className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="text-lg md:text-xl font-bold text-emerald-950 mt-1 font-mono">
+              {convInboxToBK.toFixed(1)}%
+            </div>
+            <div className="text-[11px] text-emerald-700 mt-1 truncate">
+              PS ➔ BK: <span className="font-bold font-mono">{convPSToBK.toFixed(1)}%</span>
             </div>
           </div>
         </div>
@@ -1082,15 +1201,17 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     <th className="p-3 text-right">ส่วนต่าง</th>
                     <th className="p-3 text-center">Inbox</th>
                     <th className="p-3 text-center">PS</th>
+                    <th className="p-3 text-center">BK (จอง)</th>
                     <th className="p-3 text-right">ต้นทุน/Inbox</th>
                     <th className="p-3 text-right">ต้นทุน/PS</th>
+                    <th className="p-3 text-right">ต้นทุน/BK</th>
                     <th className="p-3 text-center w-28">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {filteredCampaigns.length === 0 ? (
                     <tr>
-                      <td colSpan={14} className="text-center py-10 text-slate-400">
+                      <td colSpan={16} className="text-center py-10 text-slate-400">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Megaphone className="w-8 h-8 text-slate-300" />
                           <p>ไม่พบข้อมูลแคมเปญเพจสาขาตามเงื่อนไขที่เลือก</p>
@@ -1111,8 +1232,10 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                       const diff = b - s;
                       const inb = Number(sc.inbox) || 0;
                       const psNum = Number(sc.ps) || 0;
+                      const bkNum = Number(sc.bk) || 0;
                       const cpi = inb > 0 ? s / inb : 0;
                       const cpps = psNum > 0 ? s / psNum : 0;
+                      const cpbk = bkNum > 0 ? s / bkNum : 0;
                       const isOver = s > b;
 
                       return (
@@ -1202,11 +1325,19 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                               {formatNum(psNum)}
                             </span>
                           </td>
+                          <td className="p-3 text-center font-mono font-bold text-amber-900 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-amber-900">
+                              {formatNum(bkNum)}
+                            </span>
+                          </td>
                           <td className="p-3 text-right font-bold text-red-700 font-mono whitespace-nowrap">
                             ฿{formatNum(cpi)}
                           </td>
                           <td className="p-3 text-right font-bold text-indigo-700 font-mono whitespace-nowrap">
                             {psNum > 0 ? `฿${formatNum(cpps)}` : '-'}
+                          </td>
+                          <td className="p-3 text-right font-bold text-amber-700 font-mono whitespace-nowrap">
+                            {bkNum > 0 ? `฿${formatNum(cpbk)}` : '-'}
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1">
@@ -1269,11 +1400,17 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                       <td className="p-3 text-center font-mono text-indigo-900 font-bold">
                         {formatNum(totalPS)}
                       </td>
+                      <td className="p-3 text-center font-mono text-amber-900 font-bold">
+                        {formatNum(totalBK)}
+                      </td>
                       <td className="p-3 text-right font-mono text-red-700">
                         ฿{formatNum(avgCPI)}
                       </td>
                       <td className="p-3 text-right font-mono text-indigo-700 font-bold">
                         ฿{formatNum(avgCPPS)}
+                      </td>
+                      <td className="p-3 text-right font-mono text-amber-700 font-bold">
+                        ฿{formatNum(avgCPBK)}
                       </td>
                       <td className="p-3 text-center">-</td>
                     </tr>
@@ -1307,9 +1444,12 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     <th className="p-3 text-right">ส่วนต่างคงเหลือ</th>
                     <th className="p-3 text-center">Inbox รวม</th>
                     <th className="p-3 text-center">PS รวม</th>
+                    <th className="p-3 text-center">BK รวม</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/PS</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/BK</th>
                     <th className="p-3 text-center">แปลงเป็น PS</th>
+                    <th className="p-3 text-center">แปลงเป็น BK</th>
                     <th className="p-3 text-center">อัตราการใช้งบ</th>
                     <th className="p-3 text-center">จัดการ</th>
                   </tr>
@@ -1317,7 +1457,7 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {salesSummary.length === 0 ? (
                     <tr>
-                      <td colSpan={13} className="text-center py-8 text-slate-400">
+                      <td colSpan={16} className="text-center py-8 text-slate-400">
                         ไม่มีข้อมูลสรุปตามเงื่อนไขที่เลือก
                       </td>
                     </tr>
@@ -1371,14 +1511,25 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                               {formatNum(item.ps)}
                             </span>
                           </td>
+                          <td className="p-3 text-center font-mono font-bold text-amber-900">
+                            <span className="bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px]">
+                              {formatNum(item.bk)}
+                            </span>
+                          </td>
                           <td className="p-3 text-right font-mono font-bold text-red-700">
                             ฿{formatNum(item.cpi)}
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-indigo-700">
                             {item.ps > 0 ? `฿${formatNum(item.cpps)}` : '-'}
                           </td>
+                          <td className="p-3 text-right font-mono font-bold text-amber-700">
+                            {item.bk > 0 ? `฿${formatNum(item.cpbk)}` : '-'}
+                          </td>
                           <td className="p-3 text-center font-mono font-semibold text-slate-700">
                             {item.convRate.toFixed(1)}%
+                          </td>
+                          <td className="p-3 text-center font-mono font-semibold text-emerald-700">
+                            {item.convBKRate.toFixed(1)}%
                           </td>
                           <td className="p-3 text-center">
                             <span
@@ -1434,16 +1585,19 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     <th className="p-3 text-right">ส่วนต่าง</th>
                     <th className="p-3 text-center">Inbox รวม</th>
                     <th className="p-3 text-center">PS รวม</th>
+                    <th className="p-3 text-center">BK รวม</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/PS</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/BK</th>
                     <th className="p-3 text-center">แปลงเป็น PS</th>
+                    <th className="p-3 text-center">แปลงเป็น BK</th>
                     <th className="p-3 text-center">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {categorySummary.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-8 text-slate-400">
+                      <td colSpan={14} className="text-center py-8 text-slate-400">
                         ไม่มีข้อมูลแคมเปญตามเงื่อนไขที่เลือก
                       </td>
                     </tr>
@@ -1486,14 +1640,25 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                             {formatNum(item.ps)}
                           </span>
                         </td>
+                        <td className="p-3 text-center font-mono font-bold text-amber-900">
+                          <span className="bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px]">
+                            {formatNum(item.bk)}
+                          </span>
+                        </td>
                         <td className="p-3 text-right font-mono font-bold text-red-700">
                           ฿{formatNum(item.cpi)}
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-indigo-700">
                           {item.ps > 0 ? `฿${formatNum(item.cpps)}` : '-'}
                         </td>
+                        <td className="p-3 text-right font-mono font-bold text-amber-700">
+                          {item.bk > 0 ? `฿${formatNum(item.cpbk)}` : '-'}
+                        </td>
                         <td className="p-3 text-center font-mono font-semibold text-slate-700">
                           {item.convRate.toFixed(1)}%
+                        </td>
+                        <td className="p-3 text-center font-mono font-semibold text-emerald-700">
+                          {item.convBKRate.toFixed(1)}%
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -1537,16 +1702,19 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     <th className="p-3 text-right">ส่วนต่าง</th>
                     <th className="p-3 text-center">Inbox รวม</th>
                     <th className="p-3 text-center">PS รวม</th>
+                    <th className="p-3 text-center">BK รวม</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/Inbox</th>
                     <th className="p-3 text-right">ต้นทุนเฉลี่ย/PS</th>
+                    <th className="p-3 text-right">ต้นทุนเฉลี่ย/BK</th>
                     <th className="p-3 text-center">แปลงเป็น PS</th>
+                    <th className="p-3 text-center">แปลงเป็น BK</th>
                     <th className="p-3 text-center">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
                   {monthlySummary.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-8 text-slate-400">
+                      <td colSpan={14} className="text-center py-8 text-slate-400">
                         ไม่มีข้อมูลแคมเปญตามเงื่อนไขที่เลือก
                       </td>
                     </tr>
@@ -1586,14 +1754,25 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                               {formatNum(item.ps)}
                             </span>
                           </td>
+                          <td className="p-3 text-center font-mono font-bold text-amber-900">
+                            <span className="bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[11px]">
+                              {formatNum(item.bk)}
+                            </span>
+                          </td>
                           <td className="p-3 text-right font-mono font-bold text-red-700">
                             ฿{formatNum(item.cpi)}
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-indigo-700">
                             {item.ps > 0 ? `฿${formatNum(item.cpps)}` : '-'}
                           </td>
+                          <td className="p-3 text-right font-mono font-bold text-amber-700">
+                            {item.bk > 0 ? `฿${formatNum(item.cpbk)}` : '-'}
+                          </td>
                           <td className="p-3 text-center font-mono font-semibold text-slate-700">
                             {item.convRate.toFixed(1)}%
+                          </td>
+                          <td className="p-3 text-center font-mono font-semibold text-emerald-700">
+                            {item.convBKRate.toFixed(1)}%
                           </td>
                           <td className="p-3 text-center">
                             <button
@@ -1774,6 +1953,37 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                 </p>
               </div>
 
+              {/* ช่องกรอก BK (Booking / จองรถ) */}
+              <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-amber-950 flex items-center gap-1.5">
+                    <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">BK</span>
+                    <span>จำนวนลูกค้า BK (Booking / จองรถสำเร็จ)</span>
+                  </label>
+                  <span className="text-[10px] text-amber-700 font-medium">
+                    {modalInboxValue > 0 && modalBKValue > 0
+                      ? `แปลงได้ ${( (modalBKValue / modalInboxValue) * 100 ).toFixed(1)}%`
+                      : 'ระบุผลลัพธ์ BK'}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="เช่น 3 (จำนวนลูกค้าสถานะ BK จองรถที่ได้จากแคมเปญนี้)"
+                  value={modalBK}
+                  onChange={(e) => setModalBK(e.target.value)}
+                  className="w-full p-2.5 border border-amber-300 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono font-bold text-amber-950 text-sm"
+                />
+                <div className="flex items-center justify-between text-[10px] text-amber-700/90 mt-1">
+                  <span>ใช้คำนวณต้นทุนต่อการจอง (Cost Per Booking: CPBK)</span>
+                  {modalBKValue > 0 && modalSpendValue > 0 && (
+                    <span className="font-mono font-bold">
+                      ต้นทุน/BK: ฿{(modalSpendValue / modalBKValue).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {/* อัปโหลดรูปภาพแคมเปญ & บีบอัด 600x600 pixel */}
               <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/70 space-y-2">
                 <div className="flex items-center justify-between">
@@ -1903,8 +2113,8 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
               </div>
 
               {/* Live Preview of Calculated Metrics */}
-              {(modalBudgetValue > 0 || modalSpendValue > 0 || modalInboxValue > 0 || modalPSValue > 0) && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-[11px]">
+              {(modalBudgetValue > 0 || modalSpendValue > 0 || modalInboxValue > 0 || modalPSValue > 0 || modalBKValue > 0) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-center text-[11px]">
                   <div>
                     <span className="text-slate-500 block">ส่วนต่างงบ:</span>
                     <span
@@ -1928,9 +2138,21 @@ export const SalesCampaignTab: React.FC<SalesCampaignTabProps> = ({
                     </span>
                   </div>
                   <div>
+                    <span className="text-slate-500 block">ต้นทุน/BK:</span>
+                    <span className="font-mono font-bold text-amber-700">
+                      {modalBKValue > 0 ? `฿${formatNum(modalCPBK)}` : '-'}
+                    </span>
+                  </div>
+                  <div>
                     <span className="text-slate-500 block">แปลงเป็น PS:</span>
                     <span className="font-mono font-bold text-slate-800">
                       {modalInboxValue > 0 && modalPSValue > 0 ? `${modalConvRate.toFixed(1)}%` : '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">แปลงเป็น BK:</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {modalInboxValue > 0 && modalBKValue > 0 ? `${modalConvBKRate.toFixed(1)}%` : '-'}
                     </span>
                   </div>
                 </div>

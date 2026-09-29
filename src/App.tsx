@@ -7,8 +7,6 @@ import { CustomerTable } from './components/CustomerTable';
 import { SalesReport } from './components/SalesReport';
 import { SalesCampaignTab } from './components/SalesCampaignTab';
 import { CustomerReport } from './components/CustomerReport';
-import { ExpenseTable } from './components/ExpenseTable';
-import { ExpenseReport } from './components/ExpenseReport';
 import { UserManagementTab } from './components/UserManagementTab';
 import { SettingsTab } from './components/SettingsTab';
 import { ImageModal } from './components/ImageModal';
@@ -34,8 +32,6 @@ export default function App() {
     deleteSalesProfile,
     saveSalesCampaign,
     deleteSalesCampaign,
-    saveExpense,
-    deleteExpense,
     addCategory,
     deleteCategory,
     addSubCategory,
@@ -120,24 +116,6 @@ export default function App() {
           <CustomerReport
             appData={data}
             availableYears={availableYears}
-          />
-        )}
-
-        {currentTab === 'expenses' && (
-          <ExpenseTable
-            appData={data}
-            onSaveExpense={saveExpense}
-            onDeleteExpense={deleteExpense}
-            availableYears={availableYears}
-            canExport={canExport}
-          />
-        )}
-
-        {currentTab === 'reportexpenses' && (
-          <ExpenseReport
-            appData={data}
-            availableYears={availableYears}
-            canExport={canExport}
           />
         )}
 

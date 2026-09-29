@@ -31,7 +31,14 @@ export function useAppData() {
         parsed.users = INITIAL_DATA.users || [];
       }
       if (!parsed.statuses || !parsed.statuses.includes('ได้คุย')) {
-        parsed.statuses = ['PS', 'BK', 'RS', 'CC', 'ได้คุย'];
+        parsed.statuses = ['ได้คุย', 'PS', 'BK', 'RS', 'CC'];
+      } else {
+        // Ensure "ได้คุย" is placed at the first position
+        const idx = parsed.statuses.indexOf('ได้คุย');
+        if (idx > 0) {
+          parsed.statuses.splice(idx, 1);
+          parsed.statuses.unshift('ได้คุย');
+        }
       }
       return parsed;
     } catch {
@@ -534,6 +541,7 @@ export function useAppData() {
       spend: Number(campaign.spend) || 0,
       inbox: Number(campaign.inbox) || 0,
       ps: Number(campaign.ps) || 0,
+      bk: Number(campaign.bk) || 0,
       image: campaign.image || '',
     };
 

@@ -40,24 +40,18 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
 
-  // Row 1: งานข้อมูลลูกค้า & แคมเปญสาขา
-  const row1Tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  // Navigation Tabs (ตัดหน้างบประมาณออก ตามที่ผู้ใช้ระบุ)
+  const allTabs: { id: TabType; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
     { id: 'form', label: 'ลงข้อมูลลูกค้า', icon: <UserPlus className="w-3.5 h-3.5 mr-1" /> },
     { id: 'table', label: 'ตารางลูกค้า', icon: <TableIcon className="w-3.5 h-3.5 mr-1" /> },
     { id: 'salesreport', label: 'รายงานเซลล์', icon: <Contact className="w-3.5 h-3.5 mr-1" /> },
     { id: 'salescampaign', label: 'แคมเปญเพจสาขา', icon: <Megaphone className="w-3.5 h-3.5 mr-1" /> },
     { id: 'reportcustomer', label: 'รีพอร์ตรวม', icon: <PieChart className="w-3.5 h-3.5 mr-1" /> },
-  ];
-
-  // Row 2: งบประมาณ บริหารจัดการระบบ (ซ่อน 'users' และ 'settings' สำหรับ MKT และ Sales)
-  const allRow2Tabs: { id: TabType; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
-    { id: 'expenses', label: 'งบประมาณ', icon: <Wallet className="w-3.5 h-3.5 mr-1" /> },
-    { id: 'reportexpenses', label: 'รีพอร์ตค่าใช้จ่าย', icon: <TrendingUp className="w-3.5 h-3.5 mr-1" /> },
     { id: 'users', label: 'จัดการผู้ใช้', icon: <Users className="w-3.5 h-3.5 mr-1" />, adminOnly: true },
     { id: 'settings', label: 'ตั้งค่าระบบ', icon: <Settings className="w-3.5 h-3.5 mr-1" />, adminOnly: true },
   ];
 
-  const row2Tabs = allRow2Tabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const visibleTabs = allTabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -120,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 {/* Updated Subtitle */}
                 <p className="text-[11px] text-red-200 hidden sm:block">
-                  ระบบบันทึกข้อมูลลูกค้า รีพอร์ต และงบประมาณเพจสาขา
+                  ระบบบันทึกข้อมูลลูกค้า รีพอร์ตรวม และแคมเปญเพจสาขา
                 </p>
               </div>
             </div>
@@ -194,12 +188,11 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* 2-Line Navigation Menu (ทำเมนูเป็น 2 บรรทัด) */}
-          <div className="flex flex-col gap-1.5 pt-1 border-t border-red-600/40">
-            {/* บรรทัดที่ 1: ข้อมูลลูกค้า & แคมเปญสาขา */}
-            <div className="flex items-center overflow-x-auto scrollbar-none pb-0.5">
-              <nav className="flex items-center gap-1 bg-red-800/60 p-1 rounded-xl text-xs backdrop-blur-xs border border-red-600/40 overflow-x-auto scrollbar-none flex-1">
-                {row1Tabs.map((tab) => {
+          {/* Navigation Menu */}
+          <div className="flex items-center overflow-x-auto scrollbar-none pt-1 border-t border-red-600/40">
+            <nav className="flex items-center gap-1 bg-red-800/60 p-1 rounded-xl text-xs backdrop-blur-xs border border-red-600/40 overflow-x-auto scrollbar-none flex-1 justify-between">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                {visibleTabs.map((tab) => {
                   const isActive = currentTab === tab.id;
                   return (
                     <button
@@ -217,47 +210,21 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   );
                 })}
-              </nav>
-            </div>
+              </div>
 
-            {/* บรรทัดที่ 2: งบประมาณ การจัดการระบบ & ออกจากระบบ */}
-            <div className="flex items-center overflow-x-auto scrollbar-none pb-0.5">
-              <nav className="flex items-center gap-1 bg-red-800/60 p-1 rounded-xl text-xs backdrop-blur-xs border border-red-600/40 overflow-x-auto scrollbar-none flex-1 justify-between">
-                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-                  {row2Tabs.map((tab) => {
-                    const isActive = currentTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => onSelectTab(tab.id)}
-                        className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center whitespace-nowrap cursor-pointer ${
-                          isActive
-                            ? 'bg-white text-red-700 shadow-sm font-bold scale-[1.02]'
-                            : 'text-red-100 hover:bg-red-700/80 hover:text-white'
-                        }`}
-                      >
-                        {tab.icon}
-                        <span>{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* เมนูออกจากระบบ (Logout) ในแถวที่ 2 */}
-                {onLogout && (
-                  <button
-                    type="button"
-                    onClick={handleLogoutClick}
-                    className="px-3 py-1.5 rounded-lg font-bold transition-all flex items-center whitespace-nowrap bg-rose-950/80 hover:bg-rose-600 text-rose-100 hover:text-white border border-rose-500/50 cursor-pointer shadow-xs text-xs shrink-0 ml-1"
-                    title="ออกจากระบบ (Logout)"
-                  >
-                    <LogOut className="w-3.5 h-3.5 mr-1 text-rose-300" />
-                    <span>ออกจากระบบ</span>
-                  </button>
-                )}
-              </nav>
-            </div>
+              {/* เมนูออกจากระบบ (Logout) */}
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={handleLogoutClick}
+                  className="px-3 py-1.5 rounded-lg font-bold transition-all flex items-center whitespace-nowrap bg-rose-950/80 hover:bg-rose-600 text-rose-100 hover:text-white border border-rose-500/50 cursor-pointer shadow-xs text-xs shrink-0 ml-1"
+                  title="ออกจากระบบ (Logout)"
+                >
+                  <LogOut className="w-3.5 h-3.5 mr-1 text-rose-300" />
+                  <span>ออกจากระบบ</span>
+                </button>
+              )}
+            </nav>
           </div>
         </div>
       </header>

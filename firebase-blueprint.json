@@ -49,6 +49,7 @@
         "spend": { "type": "number", "description": "Actual spend in Baht" },
         "inbox": { "type": "number", "description": "Inbox message count" },
         "ps": { "type": "number", "description": "Number of PS prospects generated" },
+        "bk": { "type": "number", "description": "Number of BK bookings generated" },
         "image": { "type": "string", "description": "Campaign post image 600x600 px (base64)" }
       },
       "required": ["id", "month", "salesAgent", "campaignName", "category", "budget", "spend", "inbox"]
