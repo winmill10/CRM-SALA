@@ -54,6 +54,7 @@ export interface SalesCampaign {
   inbox: number;
   ps?: number; // จำนวนลูกค้า PS (Prospect / ผู้สนใจ / นัดหมาย) จากแคมเปญ
   bk?: number; // จำนวนลูกค้า BK (Booking / จองรถ) จากแคมเปญ
+  rs?: number; // จำนวนลูกค้า RS (Retail Sale / ออกรถสำเร็จ) จากแคมเปญ / ตารางลูกค้า
   image?: string; // รูปภาพแคมเปญ ขนาด 600x600 pixel (Base64)
 }
 

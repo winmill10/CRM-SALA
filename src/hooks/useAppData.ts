@@ -542,6 +542,7 @@ export function useAppData() {
       inbox: Number(campaign.inbox) || 0,
       ps: Number(campaign.ps) || 0,
       bk: Number(campaign.bk) || 0,
+      rs: Number(campaign.rs) || 0,
       image: campaign.image || '',
     };
 

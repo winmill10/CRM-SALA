@@ -113,17 +113,21 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
     campaignInbox,
     campaignPS,
     campaignBK,
+    campaignRS,
     costPerInbox,
     costPerPS,
     costPerBK,
+    costPerRS,
     campaignConvPS,
     campaignConvBK,
+    campaignConvRS,
   } = useMemo(() => {
     let b = 0;
     let s = 0;
     let inb = 0;
     let p = 0;
     let k = 0;
+    let r = 0;
 
     filteredCampaigns.forEach((sc) => {
       b += Number(sc.budget) || 0;
@@ -131,14 +135,17 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       inb += Number(sc.inbox) || 0;
       p += Number(sc.ps) || 0;
       k += Number(sc.bk) || 0;
+      r += Number(sc.rs) || 0;
     });
 
     const diff = b - s;
     const cpi = inb > 0 ? s / inb : 0;
     const cpps = p > 0 ? s / p : 0;
     const cpbk = k > 0 ? s / k : 0;
+    const cprs = r > 0 ? s / r : 0;
     const convPS = inb > 0 ? (p / inb) * 100 : 0;
     const convBK = inb > 0 ? (k / inb) * 100 : 0;
+    const convRS = k > 0 ? (r / k) * 100 : 0;
 
     return {
       campaignBudget: b,
@@ -147,11 +154,14 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       campaignInbox: inb,
       campaignPS: p,
       campaignBK: k,
+      campaignRS: r,
       costPerInbox: cpi,
       costPerPS: cpps,
       costPerBK: cpbk,
+      costPerRS: cprs,
       campaignConvPS: convPS,
       campaignConvBK: convBK,
+      campaignConvRS: convRS,
     };
   }, [filteredCampaigns]);
 
@@ -175,30 +185,45 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
 
   // 3. วิเคราะห์ความคุ้มค่าแบบบูรณาการ (Campaigns + Customers)
   const effectiveCostPerCustomer = totalCustomers > 0 ? campaignSpend / totalCustomers : 0;
+  const effectiveCostPerPS = psCount > 0 ? campaignSpend / psCount : 0;
   const effectiveCostPerBK = bkCount > 0 ? campaignSpend / bkCount : 0;
   const effectiveCostPerRS = rsCount > 0 ? campaignSpend / rsCount : 0;
 
   // ลูกค้าที่ลิงก์กับแคมเปญสาขา vs ลูกค้าทั่วไป/หน้าร้าน
   const linkedCustomers = useMemo(() => {
-    return filteredCustomers.filter((c) => Boolean(c.campaignId));
+    return filteredCustomers.filter((c) => Boolean(c.campaignId || c.campaignName));
   }, [filteredCustomers]);
 
   const organicCustomers = useMemo(() => {
-    return filteredCustomers.filter((c) => !c.campaignId);
+    return filteredCustomers.filter((c) => !c.campaignId && !c.campaignName);
   }, [filteredCustomers]);
 
   // สรุปแยกรายแคมเปญเทียบกับลูกค้าจริงในตาราง
   const campaignAttribution = useMemo(() => {
     return filteredCampaigns.map((sc) => {
-      const actualCustomers = filteredCustomers.filter((c) => c.campaignId === sc.id);
+      const actualCustomers = filteredCustomers.filter((c) => {
+        if (c.campaignId && c.campaignId === sc.id) return true;
+        if (c.campaignName && (c.campaignName === sc.campaignName || c.campaignName === String(sc.id))) return true;
+        // กรณีบันทึกไม่ครบ ตรวจสอบความสอดคล้องเซลล์ หมวดหมู่ และเดือน
+        if (!c.campaignId && !c.campaignName) {
+          const matchSales = c.salesAgent === sc.salesAgent;
+          const matchCat = c.category === sc.category;
+          const matchMonth = c.contactDate.substring(0, 7) === sc.month;
+          return matchSales && matchCat && matchMonth;
+        }
+        return false;
+      });
+
       const cTalked = actualCustomers.filter((c) => c.status === 'ได้คุย').length;
-      const cPS = actualCustomers.filter((c) => c.status === 'PS').length;
-      const cBK = actualCustomers.filter((c) => c.status === 'BK').length;
-      const cRS = actualCustomers.filter((c) => c.status === 'RS').length;
+      const cPS = actualCustomers.filter((c) => c.status === 'PS' || (c.statusHistory && c.statusHistory.some((h) => h.status === 'PS'))).length;
+      const cBK = actualCustomers.filter((c) => c.status === 'BK' || (c.statusHistory && c.statusHistory.some((h) => h.status === 'BK'))).length;
+      const cRS = actualCustomers.filter((c) => c.status === 'RS' || (c.statusHistory && c.statusHistory.some((h) => h.status === 'RS'))).length;
       const cCC = actualCustomers.filter((c) => c.status === 'CC').length;
       const s = Number(sc.spend) || 0;
       const realCostPerLead = actualCustomers.length > 0 ? s / actualCustomers.length : 0;
+      const realCostPerPS = cPS > 0 ? s / cPS : 0;
       const realCostPerBK = cBK > 0 ? s / cBK : 0;
+      const realCostPerRS = cRS > 0 ? s / cRS : 0;
 
       return {
         campaign: sc,
@@ -206,14 +231,18 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
         inbox: Number(sc.inbox) || 0,
         reportedPS: Number(sc.ps) || 0,
         reportedBK: Number(sc.bk) || 0,
+        reportedRS: Number(sc.rs) || 0,
         actualTotal: actualCustomers.length,
         actualTalked: cTalked,
         actualPS: cPS,
         actualBK: cBK,
         actualRS: cRS,
         actualCC: cCC,
+        actualCustomersList: actualCustomers,
         realCostPerLead,
+        realCostPerPS,
         realCostPerBK,
+        realCostPerRS,
       };
     });
   }, [filteredCampaigns, filteredCustomers]);
@@ -226,7 +255,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
         salesAgent: string;
         campaignSpend: number;
         campaignInbox: number;
+        campaignPS: number;
         campaignBK: number;
+        campaignRS: number;
         customerTotal: number;
         customerTalked: number;
         customerPS: number;
@@ -240,7 +271,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
         salesAgent: agent,
         campaignSpend: 0,
         campaignInbox: 0,
+        campaignPS: 0,
         campaignBK: 0,
+        campaignRS: 0,
         customerTotal: 0,
         customerTalked: 0,
         customerPS: 0,
@@ -254,7 +287,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
         salesAgent: sc.salesAgent,
         campaignSpend: 0,
         campaignInbox: 0,
+        campaignPS: 0,
         campaignBK: 0,
+        campaignRS: 0,
         customerTotal: 0,
         customerTalked: 0,
         customerPS: 0,
@@ -263,7 +298,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       };
       item.campaignSpend += Number(sc.spend) || 0;
       item.campaignInbox += Number(sc.inbox) || 0;
+      item.campaignPS += Number(sc.ps) || 0;
       item.campaignBK += Number(sc.bk) || 0;
+      item.campaignRS += Number(sc.rs) || 0;
       map.set(sc.salesAgent, item);
     });
 
@@ -272,7 +309,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
         salesAgent: c.salesAgent,
         campaignSpend: 0,
         campaignInbox: 0,
+        campaignPS: 0,
         campaignBK: 0,
+        campaignRS: 0,
         customerTotal: 0,
         customerTalked: 0,
         customerPS: 0,
@@ -444,20 +483,25 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       { 'ดัชนีชี้วัด (KPI)': 'จำนวนแคมเปญเพจสาขาทั้งหมด', 'จำนวน': filteredCampaigns.length },
       { 'ดัชนีชี้วัด (KPI)': 'Inbox รวมจากแคมเปญเพจสาขา (ข้อความ)', 'จำนวน': campaignInbox },
       { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อ Inbox (บาท)', 'จำนวน': Number(costPerInbox.toFixed(2)) },
+      { 'ดัชนีชี้วัด (KPI)': 'สรุปยอด PS จากแคมเปญเพจสาขา (คน)', 'จำนวน': campaignPS },
+      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อ PS แคมเปญ (บาท)', 'จำนวน': Number(costPerPS.toFixed(2)) },
       { 'ดัชนีชี้วัด (KPI)': 'สรุปยอดจอง BK จากแคมเปญเพจสาขา (คัน)', 'จำนวน': campaignBK },
       { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อ BK แคมเปญ (บาท)', 'จำนวน': Number(costPerBK.toFixed(2)) },
+      { 'ดัชนีชี้วัด (KPI)': 'สรุปยอดออกรถ RS จากแคมเปญเพจสาขา (คัน)', 'จำนวน': campaignRS },
+      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อ RS แคมเปญ (บาท)', 'จำนวน': Number(costPerRS.toFixed(2)) },
       { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าในตารางลูกค้าทั้งหมด (ราย)', 'จำนวน': totalCustomers },
       { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ ได้คุย (ราย)', 'จำนวน': talkedCount },
-      { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ PS (ผู้สนใจ) (ราย)', 'จำนวน': psCount },
+      { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ PS (ผู้สนใจจากตาราง) (ราย)', 'จำนวน': psCount },
       { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ BK (จองรถในตาราง) (ราย)', 'จำนวน': bkCount },
-      { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ RS (ออกรถสำเร็จ) (ราย)', 'จำนวน': rsCount },
+      { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ RS (ออกรถสำเร็จในตาราง) (ราย)', 'จำนวน': rsCount },
       { 'ดัชนีชี้วัด (KPI)': 'ลูกค้าสถานะ CC (ยกเลิก) (ราย)', 'จำนวน': ccCount },
       { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อลูกค้า 1 รายในระบบ (บาท)', 'จำนวน': Number(effectiveCostPerCustomer.toFixed(2)) },
-      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อการจอง BK จริง (บาท)', 'จำนวน': Number(effectiveCostPerBK.toFixed(2)) },
-      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อการออกรถ RS จริง (บาท)', 'จำนวน': Number(effectiveCostPerRS.toFixed(2)) },
+      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อผู้สนใจ PS ในตาราง (บาท)', 'จำนวน': Number(effectiveCostPerPS.toFixed(2)) },
+      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อการจอง BK จริงในตาราง (บาท)', 'จำนวน': Number(effectiveCostPerBK.toFixed(2)) },
+      { 'ดัชนีชี้วัด (KPI)': 'ต้นทุนเฉลี่ยต่อการออกรถ RS จริงในตาราง (บาท)', 'จำนวน': Number(effectiveCostPerRS.toFixed(2)) },
     ];
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    wsSummary['!cols'] = [{ wch: 45 }, { wch: 20 }];
+    wsSummary['!cols'] = [{ wch: 48 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(workbook, wsSummary, 'สรุปดัชนีภาพรวม');
 
     // Sheet 2: เปรียบเทียบผลงานเซลล์
@@ -466,12 +510,14 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       'เซลล์': a.salesAgent,
       'ยอดเงินใช้จ่ายแคมเปญ (บาท)': a.campaignSpend,
       'Inbox จากแคมเปญ': a.campaignInbox,
+      'PS จากแคมเปญ': a.campaignPS,
       'BK จากแคมเปญ': a.campaignBK,
+      'RS จากแคมเปญ': a.campaignRS,
       'ลูกค้าในตารางทั้งหมด': a.customerTotal,
-      'ได้คุย': a.customerTalked,
-      'PS': a.customerPS,
-      'BK (จองรถ)': a.customerBK,
-      'RS (ออกรถ)': a.customerRS,
+      'ได้คุย (ตารางลูกค้า)': a.customerTalked,
+      'PS (ตารางลูกค้า)': a.customerPS,
+      'BK (ตารางลูกค้า)': a.customerBK,
+      'RS (ตารางลูกค้า)': a.customerRS,
     }));
     const wsAgent = XLSX.utils.json_to_sheet(agentRows);
     wsAgent['!cols'] = [
@@ -480,13 +526,61 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
       { wch: 24 },
       { wch: 16 },
       { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
       { wch: 20 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
     ];
     XLSX.utils.book_append_sheet(workbook, wsAgent, 'สรุปแยกตามเซลล์');
+
+    // Sheet 3: รายงานแคมเปญเชื่อมโยงกับลูกค้าจริง (Campaign Attribution)
+    const attrRows = campaignAttribution.map((item, idx) => ({
+      'ลำดับ': idx + 1,
+      'เดือน': item.campaign.month,
+      'เซลล์': item.campaign.salesAgent,
+      'ชื่อแคมเปญเพจสาขา': item.campaign.campaignName,
+      'ประเภท': item.campaign.category,
+      'ยอดเงินที่ใช้จริง (บาท)': item.spend,
+      'Inbox แคมเปญ': item.inbox,
+      'PS แคมเปญ': item.reportedPS,
+      'BK แคมเปญ': item.reportedBK,
+      'RS แคมเปญ': item.reportedRS,
+      'ลูกค้าที่ผูกในตาราง': item.actualTotal,
+      'ได้คุย': item.actualTalked,
+      'PS จริง (ตารางลูกค้า)': item.actualPS,
+      'BK จริง (ตารางลูกค้า)': item.actualBK,
+      'RS จริง (ตารางลูกค้า)': item.actualRS,
+      'ต้นทุนต่อลูกค้าจริง (บาท)': Number(item.realCostPerLead.toFixed(2)),
+      'ต้นทุนต่อ PS จริง (บาท)': Number(item.realCostPerPS.toFixed(2)),
+      'ต้นทุนต่อ BK จริง (บาท)': Number(item.realCostPerBK.toFixed(2)),
+      'ต้นทุนต่อ RS จริง (บาท)': Number(item.realCostPerRS.toFixed(2)),
+    }));
+    const wsAttr = XLSX.utils.json_to_sheet(attrRows);
+    wsAttr['!cols'] = [
+      { wch: 8 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 32 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 10 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, wsAttr, 'แคมเปญเชื่อมโยงลูกค้า');
 
     // Sheet 3: ลูกค้าแยกตามรุ่นรถ
     const catRows = catSubSummary.map((row, idx) => ({
@@ -671,8 +765,8 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
             </span>
           </div>
 
-          {/* Cards Grid: 1. แคมเปญสาขา (งบ, ใช้, Inbox, ต้นทุน) */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Cards Grid: 1. แคมเปญสาขา (งบ, ใช้, Inbox, PS, BK, RS, ต้นทุน) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* 1.1 งบประมาณแคมเปญ */}
             <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl flex flex-col justify-between">
               <div className="text-xs text-slate-500 font-semibold flex items-center justify-between">
@@ -693,7 +787,7 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
             {/* 1.2 ยอด Inbox รวม (จากแคมเปญสาขา) */}
             <div className="bg-sky-50/80 border border-sky-200 p-3.5 rounded-2xl flex flex-col justify-between">
               <div className="text-xs text-sky-800 font-semibold flex items-center justify-between">
-                <span>Inbox แคมเปญสาขารวม</span>
+                <span>Inbox แคมเปญสาขา</span>
                 <MessageSquare className="w-4 h-4 text-sky-500" />
               </div>
               <div className="text-lg md:text-xl font-bold text-sky-950 mt-1 font-mono">
@@ -705,12 +799,34 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
               </div>
             </div>
 
-            {/* 1.3 สรุป BK รวมจากแคมเปญสาขา */}
+            {/* 1.3 สรุป PS จากแคมเปญสาขา */}
+            <div className="bg-indigo-50/80 border border-indigo-200 p-3.5 rounded-2xl flex flex-col justify-between">
+              <div className="text-xs text-indigo-900 font-bold flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">PS</span>
+                  <span>สรุป PS (ผู้สนใจ)</span>
+                </span>
+                <span className="text-[10px] text-indigo-600 font-mono font-semibold">
+                  {campaignConvPS.toFixed(1)}%
+                </span>
+              </div>
+              <div className="text-lg md:text-xl font-bold text-indigo-950 mt-1 font-mono">
+                {formatNum(campaignPS)} <span className="text-xs font-normal text-indigo-800">คน</span>
+              </div>
+              <div className="text-[11px] text-indigo-800 mt-1 flex justify-between">
+                <span>ต้นทุนเฉลี่ย/PS:</span>
+                <span className="font-bold font-mono text-indigo-950">
+                  {campaignPS > 0 ? `฿${formatNum(costPerPS)}` : '-'}
+                </span>
+              </div>
+            </div>
+
+            {/* 1.4 สรุป BK รวมจากแคมเปญสาขา */}
             <div className="bg-amber-50/80 border border-amber-300 p-3.5 rounded-2xl flex flex-col justify-between shadow-2xs">
               <div className="text-xs text-amber-900 font-bold flex items-center justify-between">
                 <span className="flex items-center gap-1">
                   <span className="bg-amber-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">BK</span>
-                  <span>สรุป BK (จองรถจากแคมเปญ)</span>
+                  <span>สรุป BK (จองรถ)</span>
                 </span>
                 <BookmarkCheck className="w-4 h-4 text-amber-600" />
               </div>
@@ -719,22 +835,29 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
               </div>
               <div className="text-[11px] text-amber-800 mt-1 flex justify-between">
                 <span>ต้นทุนเฉลี่ย/BK:</span>
-                <span className="font-bold font-mono text-amber-950">฿{formatNum(costPerBK)}</span>
+                <span className="font-bold font-mono text-amber-950">
+                  {campaignBK > 0 ? `฿${formatNum(costPerBK)}` : '-'}
+                </span>
               </div>
             </div>
 
-            {/* 1.4 ความคุ้มค่า: ต้นทุนต่อการออกรถจริง (RS) */}
+            {/* 1.5 ความคุ้มค่า: สรุปยอดออกรถ (RS) */}
             <div className="bg-emerald-50/80 border border-emerald-300 p-3.5 rounded-2xl flex flex-col justify-between">
               <div className="text-xs text-emerald-900 font-bold flex items-center justify-between">
-                <span>ต้นทุนต่อการออกรถ (RS)</span>
+                <span className="flex items-center gap-1">
+                  <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">RS</span>
+                  <span>สรุป RS (ออกรถ)</span>
+                </span>
                 <Award className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="text-lg md:text-xl font-bold text-emerald-950 mt-1 font-mono">
-                {rsCount > 0 ? `฿${formatNum(effectiveCostPerRS)}` : '-'}
+                {campaignRS > 0 ? formatNum(campaignRS) : rsCount} <span className="text-xs font-normal text-emerald-800">คัน</span>
               </div>
               <div className="text-[11px] text-emerald-800 mt-1 flex justify-between">
-                <span>ออกรถสำเร็จในตาราง:</span>
-                <span className="font-bold font-mono text-emerald-950">{rsCount} คัน</span>
+                <span>ต้นทุน/RS:</span>
+                <span className="font-bold font-mono text-emerald-950">
+                  {campaignRS > 0 ? `฿${formatNum(costPerRS)}` : rsCount > 0 ? `฿${formatNum(effectiveCostPerRS)}` : '-'}
+                </span>
               </div>
             </div>
           </div>
@@ -912,19 +1035,22 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
                   <th className="p-2.5">ประเภท</th>
                   <th className="p-2.5 text-right">ยอดใช้จ่ายจริง</th>
                   <th className="p-2.5 text-center">Inbox แคมเปญ</th>
-                  <th className="p-2.5 text-center bg-amber-800">BK แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-indigo-800/80">PS แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-amber-800/80">BK แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-emerald-800/80">RS แคมเปญ</th>
                   <th className="p-2.5 text-center">ลูกค้าที่ผูกในตาราง</th>
                   <th className="p-2.5 text-center">ได้คุย</th>
-                  <th className="p-2.5 text-center">PS</th>
-                  <th className="p-2.5 text-center">BK จริง</th>
-                  <th className="p-2.5 text-center">RS จริง</th>
+                  <th className="p-2.5 text-center bg-indigo-900/60">PS จริง</th>
+                  <th className="p-2.5 text-center bg-amber-900/60">BK จริง</th>
+                  <th className="p-2.5 text-center bg-emerald-900/60">RS จริง</th>
                   <th className="p-2.5 text-right">ต้นทุน/ลูกค้าจริง</th>
+                  <th className="p-2.5 text-right">ต้นทุน/RS จริง</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
                 {campaignAttribution.length === 0 ? (
                   <tr>
-                    <td colSpan={13} className="text-center py-6 text-slate-400 font-sans">
+                    <td colSpan={16} className="text-center py-6 text-slate-400 font-sans">
                       ไม่พบข้อมูลแคมเปญเพจสาขาในช่วงเวลาที่เลือก
                     </td>
                   </tr>
@@ -954,8 +1080,14 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
                       <td className="p-2.5 text-center font-bold text-sky-800 whitespace-nowrap">
                         {formatNum(item.inbox)}
                       </td>
+                      <td className="p-2.5 text-center font-bold text-indigo-900 bg-indigo-50/50 whitespace-nowrap">
+                        {formatNum(item.reportedPS)}
+                      </td>
                       <td className="p-2.5 text-center font-bold text-amber-900 bg-amber-50/60 whitespace-nowrap">
                         {formatNum(item.reportedBK)}
+                      </td>
+                      <td className="p-2.5 text-center font-bold text-emerald-900 bg-emerald-50/60 whitespace-nowrap">
+                        {formatNum(item.reportedRS)}
                       </td>
                       <td className="p-2.5 text-center font-bold text-slate-900 whitespace-nowrap">
                         <span className="bg-slate-100 px-2 py-0.5 rounded-lg">
@@ -963,11 +1095,14 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
                         </span>
                       </td>
                       <td className="p-2.5 text-center text-indigo-700 whitespace-nowrap">{item.actualTalked}</td>
-                      <td className="p-2.5 text-center text-sky-700 whitespace-nowrap">{item.actualPS}</td>
+                      <td className="p-2.5 text-center text-sky-700 whitespace-nowrap font-bold">{item.actualPS}</td>
                       <td className="p-2.5 text-center text-amber-700 font-bold whitespace-nowrap">{item.actualBK}</td>
                       <td className="p-2.5 text-center text-emerald-700 font-bold whitespace-nowrap">{item.actualRS}</td>
                       <td className="p-2.5 text-right font-bold text-slate-800 whitespace-nowrap">
                         {item.actualTotal > 0 ? `฿${formatNum(item.realCostPerLead)}` : '-'}
+                      </td>
+                      <td className="p-2.5 text-right font-bold text-emerald-700 whitespace-nowrap">
+                        {item.actualRS > 0 ? `฿${formatNum(item.realCostPerRS)}` : '-'}
                       </td>
                     </tr>
                   ))
@@ -990,11 +1125,13 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
                 <tr>
                   <th className="p-2.5">เซลล์ผู้ดูแล</th>
                   <th className="p-2.5 text-right">ยอดเงินแคมเปญที่ใช้</th>
-                  <th className="p-2.5 text-center">Inbox จากแคมเปญ</th>
-                  <th className="p-2.5 text-center">BK จากแคมเปญ</th>
+                  <th className="p-2.5 text-center">Inbox แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-indigo-800/80">PS แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-amber-800/80">BK แคมเปญ</th>
+                  <th className="p-2.5 text-center bg-emerald-800/80">RS แคมเปญ</th>
                   <th className="p-2.5 text-center">ลูกค้าในตารางรวม</th>
                   <th className="p-2.5 text-center bg-indigo-800">ได้คุย</th>
-                  <th className="p-2.5 text-center bg-sky-800">PS</th>
+                  <th className="p-2.5 text-center bg-sky-800">PS จริง</th>
                   <th className="p-2.5 text-center bg-amber-800">BK จริง</th>
                   <th className="p-2.5 text-center bg-emerald-800">RS (ออกรถ)</th>
                 </tr>
@@ -1002,7 +1139,7 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
               <tbody className="divide-y divide-slate-100 font-mono">
                 {agentPerformance.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-6 text-slate-400 font-sans">
+                    <td colSpan={11} className="text-center py-6 text-slate-400 font-sans">
                       ไม่มีข้อมูลเซลล์ในช่วงเวลาที่เลือก
                     </td>
                   </tr>
@@ -1014,7 +1151,9 @@ export const CustomerReport: React.FC<CustomerReportProps> = ({ appData, availab
                         ฿{formatNum(a.campaignSpend)}
                       </td>
                       <td className="p-2.5 text-center font-bold text-sky-800 whitespace-nowrap">{formatNum(a.campaignInbox)}</td>
-                      <td className="p-2.5 text-center font-bold text-amber-900 whitespace-nowrap">{formatNum(a.campaignBK)}</td>
+                      <td className="p-2.5 text-center font-bold text-indigo-900 bg-indigo-50/50 whitespace-nowrap">{formatNum(a.campaignPS)}</td>
+                      <td className="p-2.5 text-center font-bold text-amber-900 bg-amber-50/50 whitespace-nowrap">{formatNum(a.campaignBK)}</td>
+                      <td className="p-2.5 text-center font-bold text-emerald-900 bg-emerald-50/50 whitespace-nowrap">{formatNum(a.campaignRS)}</td>
                       <td className="p-2.5 text-center font-bold text-slate-900 whitespace-nowrap">
                         <span className="bg-slate-100 px-2 py-0.5 rounded-lg">{a.customerTotal}</span>
                       </td>
